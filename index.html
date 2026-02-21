@@ -1,0 +1,1450 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>The Hidden Word</title>
+<script src="https://unpkg.com/peerjs@1.5.5/dist/peerjs.min.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+:root{
+--bg:#0f0f1a;--bg2:#1a1a2e;--card:#1e1e35;--card2:#252545;
+--gold:#d4a843;--gold2:#f0c866;--gold-dim:#8a7030;
+--green:#4caf50;--red:#e53935;--blue:#42a5f5;--purple:#ab47bc;
+--text:#e8e8f0;--text2:#9999bb;--text3:#666680;
+--radius:14px;--shadow:0 4px 24px rgba(0,0,0,0.4);
+}
+html,body{height:100%;font-family:'Segoe UI',Tahoma,sans-serif;background:var(--bg);color:var(--text);overflow:hidden}
+#app{height:100%;display:flex;flex-direction:column;max-width:480px;margin:0 auto;position:relative}
+
+/* ===== SCREENS ===== */
+.screen{position:absolute;inset:0;display:flex;flex-direction:column;padding:20px;overflow-y:auto;
+  opacity:0;pointer-events:none;transform:translateY(20px);transition:opacity .4s,transform .4s}
+.screen.active{opacity:1;pointer-events:auto;transform:translateY(0)}
+
+/* ===== TYPOGRAPHY ===== */
+h1{font-size:28px;font-weight:800;color:var(--gold);text-align:center;letter-spacing:1px}
+h2{font-size:20px;font-weight:700;color:var(--gold2);text-align:center;margin-bottom:8px}
+h3{font-size:16px;font-weight:600;color:var(--text2);text-align:center}
+.subtitle{font-size:14px;color:var(--text2);text-align:center;margin-top:4px;line-height:1.5}
+
+/* ===== BUTTONS ===== */
+.btn{display:block;width:100%;padding:16px;border:none;border-radius:var(--radius);font-size:17px;
+  font-weight:700;cursor:pointer;transition:all .15s;text-align:center;font-family:inherit}
+.btn-gold{background:linear-gradient(135deg,var(--gold),var(--gold2));color:#1a1a2e;box-shadow:0 4px 16px rgba(212,168,67,0.3)}
+.btn-gold:active{transform:scale(0.97);box-shadow:0 2px 8px rgba(212,168,67,0.2)}
+.btn-outline{background:transparent;border:2px solid var(--gold-dim);color:var(--gold)}
+.btn-outline:active{background:rgba(212,168,67,0.1)}
+.btn-red{background:var(--red);color:white}
+.btn-green{background:var(--green);color:white}
+.btn-sm{padding:10px 16px;font-size:14px;width:auto;display:inline-block}
+.btn:disabled{opacity:0.4;pointer-events:none}
+
+/* ===== INPUT ===== */
+input[type=text]{width:100%;padding:14px 16px;background:var(--card2);border:2px solid transparent;
+  border-radius:var(--radius);color:var(--text);font-size:16px;font-family:inherit;outline:none;
+  transition:border-color .2s}
+input[type=text]:focus{border-color:var(--gold)}
+input::placeholder{color:var(--text3)}
+
+/* ===== CARDS ===== */
+.card{background:var(--card);border-radius:var(--radius);padding:20px;box-shadow:var(--shadow)}
+.card-glow{border:1px solid rgba(212,168,67,0.2);box-shadow:var(--shadow),0 0 30px rgba(212,168,67,0.05)}
+
+/* ===== PLAYER CHIPS ===== */
+.player-chip{display:inline-flex;align-items:center;gap:6px;padding:8px 14px;border-radius:30px;
+  font-size:14px;font-weight:600;background:var(--card2);border:1.5px solid var(--text3);margin:4px;
+  transition:all .2s;cursor:pointer}
+.player-chip.selected{border-color:var(--gold);background:rgba(212,168,67,0.15);color:var(--gold)}
+.player-chip .dot{width:8px;height:8px;border-radius:50%;background:var(--green);display:inline-block}
+
+/* ===== WORD GRID ===== */
+.word-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin:12px 0}
+.word-cell{padding:14px 8px;border-radius:10px;background:var(--card2);border:2px solid transparent;
+  text-align:center;font-size:15px;font-weight:600;cursor:default;transition:all .2s;
+  min-height:50px;display:flex;align-items:center;justify-content:center;user-select:none}
+.word-cell.interactive{cursor:pointer}
+.word-cell.interactive:active{transform:scale(0.96)}
+.word-cell.selected{border-color:var(--gold);background:rgba(212,168,67,0.15);color:var(--gold);box-shadow:0 0 12px rgba(212,168,67,0.2)}
+.word-cell.correct{border-color:var(--green);background:rgba(76,175,80,0.15);color:var(--green)}
+.word-cell.wrong{border-color:var(--red);background:rgba(229,57,53,0.15);color:var(--red)}
+
+/* ===== TIMER ===== */
+.timer-wrap{display:flex;flex-direction:column;align-items:center;margin:16px 0}
+.timer-ring{position:relative;width:100px;height:100px}
+.timer-ring svg{width:100%;height:100%;transform:rotate(-90deg)}
+.timer-ring circle{fill:none;stroke-width:6;stroke-linecap:round}
+.timer-ring .bg{stroke:var(--card2)}
+.timer-ring .fg{stroke:var(--gold);transition:stroke-dashoffset .5s linear,stroke .3s}
+.timer-ring .fg.urgent{stroke:var(--red)}
+.timer-digits{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
+  font-size:28px;font-weight:800;font-variant-numeric:tabular-nums}
+.timer-label{font-size:13px;color:var(--text2);margin-top:6px;font-weight:600}
+
+/* ===== ROLE CARD (flip) ===== */
+.role-card-container{perspective:600px;margin:20px 0}
+.role-card{position:relative;width:100%;min-height:220px;transition:transform .6s;transform-style:preserve-3d}
+.role-card.flipped{transform:rotateY(180deg)}
+.role-card .face{position:absolute;inset:0;backface-visibility:hidden;border-radius:var(--radius);
+  display:flex;flex-direction:column;align-items:center;justify-content:center;padding:24px}
+.role-card .front{background:linear-gradient(135deg,var(--card),var(--card2));border:2px solid var(--gold-dim);cursor:pointer}
+.role-card .front::after{content:'Tap to Reveal';color:var(--gold);font-size:16px;font-weight:600;margin-top:12px}
+.role-card .back{transform:rotateY(180deg);border:2px solid var(--gold)}
+.role-icon{font-size:48px;margin-bottom:8px}
+.role-name{font-size:22px;font-weight:800}
+.role-word{font-size:18px;color:var(--gold2);margin-top:12px;padding:8px 20px;background:rgba(212,168,67,0.1);
+  border-radius:8px;border:1px dashed var(--gold-dim)}
+
+/* ===== ROLE INFO BADGE ===== */
+.role-info{padding:12px 16px;border-radius:12px;margin:8px 0;text-align:center;font-weight:600;font-size:14px}
+.role-info.judge{background:rgba(212,168,67,0.1);border:1px solid rgba(212,168,67,0.25);color:var(--gold)}
+.role-info.witness{background:rgba(76,175,80,0.1);border:1px solid rgba(76,175,80,0.25);color:var(--green)}
+.role-info.detective{background:rgba(66,165,245,0.1);border:1px solid rgba(66,165,245,0.25);color:var(--blue)}
+.role-info.suspect{background:rgba(229,57,53,0.1);border:1px solid rgba(229,57,53,0.25);color:var(--red)}
+.role-info .hint-word{font-size:20px;font-weight:800;display:block;margin-top:4px;letter-spacing:1px}
+
+/* ===== STAGE BADGE ===== */
+.stage-badge{display:inline-flex;align-items:center;gap:6px;padding:6px 14px;border-radius:20px;
+  font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:1px;margin:8px auto}
+.stage-badge.loc{background:rgba(66,165,245,0.15);color:var(--blue);border:1px solid rgba(66,165,245,0.3)}
+.stage-badge.weap{background:rgba(229,57,53,0.15);color:var(--red);border:1px solid rgba(229,57,53,0.3)}
+.stage-badge.sus{background:rgba(171,71,188,0.15);color:var(--purple);border:1px solid rgba(171,71,188,0.3)}
+
+/* ===== RESULT BANNER ===== */
+.result-banner{padding:16px;border-radius:var(--radius);text-align:center;font-size:18px;font-weight:700;
+  margin:12px 0;animation:popIn .4s}
+.result-banner.correct{background:rgba(76,175,80,0.15);color:var(--green);border:1px solid rgba(76,175,80,0.3)}
+.result-banner.wrong{background:rgba(229,57,53,0.15);color:var(--red);border:1px solid rgba(229,57,53,0.3)}
+
+/* ===== PLAYER LIST ===== */
+.player-list{display:flex;flex-wrap:wrap;justify-content:center;gap:4px;margin:8px 0}
+
+/* ===== LOBBY ===== */
+.room-code{font-size:42px;font-weight:900;letter-spacing:12px;color:var(--gold2);text-align:center;
+  padding:16px;background:var(--card);border-radius:var(--radius);border:2px dashed var(--gold-dim);
+  font-family:'Courier New',monospace;margin:12px 0;user-select:all}
+.lobby-player{display:flex;align-items:center;gap:10px;padding:10px 14px;background:var(--card2);
+  border-radius:10px;margin-bottom:8px;animation:slideIn .3s}
+.lobby-player .name{flex:1;font-weight:600;font-size:15px}
+.lobby-player .host-tag{font-size:11px;padding:3px 8px;border-radius:10px;background:rgba(212,168,67,0.2);
+  color:var(--gold);font-weight:700}
+.lobby-player .dot{width:10px;height:10px;border-radius:50%;background:var(--green)}
+
+/* ===== FINAL REVEAL ===== */
+.reveal-role{display:flex;align-items:center;gap:10px;padding:12px 16px;border-radius:10px;
+  margin-bottom:8px;background:var(--card2)}
+.reveal-role .rname{flex:1;font-weight:600}
+.reveal-role .rtag{padding:4px 12px;border-radius:20px;font-size:12px;font-weight:700}
+.reveal-role .rtag.witness{background:rgba(76,175,80,0.2);color:var(--green)}
+.reveal-role .rtag.suspect{background:rgba(229,57,53,0.2);color:var(--red)}
+.reveal-role .rtag.detective{background:rgba(66,165,245,0.2);color:var(--blue)}
+.reveal-role .rtag.judge{background:rgba(212,168,67,0.2);color:var(--gold)}
+
+/* ===== WAITING ===== */
+.waiting{text-align:center;color:var(--text2);padding:30px 0}
+.waiting .dots::after{content:'...';animation:dotPulse 1.5s infinite}
+@keyframes dotPulse{0%{content:'.'} 33%{content:'..'} 66%{content:'...'}}
+
+/* ===== TOAST ===== */
+#toast-container{position:fixed;top:16px;left:50%;transform:translateX(-50%);z-index:1000;
+  display:flex;flex-direction:column;gap:8px;pointer-events:none;max-width:380px;width:90%}
+.toast{padding:12px 18px;border-radius:10px;font-size:14px;font-weight:600;text-align:center;
+  animation:toastIn .3s;pointer-events:auto;background:var(--card);border:1px solid var(--text3);
+  box-shadow:0 4px 20px rgba(0,0,0,0.5)}
+.toast.success{border-color:var(--green);color:var(--green)}
+.toast.error{border-color:var(--red);color:var(--red)}
+.toast.info{border-color:var(--blue);color:var(--blue)}
+
+/* ===== SPACER ===== */
+.spacer{flex:1}
+.gap{height:12px}
+.gap2{height:20px}
+
+/* ===== ANIMATIONS ===== */
+@keyframes popIn{0%{transform:scale(0.8);opacity:0}100%{transform:scale(1);opacity:1}}
+@keyframes slideIn{0%{transform:translateX(-10px);opacity:0}100%{transform:translateX(0);opacity:1}}
+@keyframes toastIn{0%{transform:translateY(-20px);opacity:0}100%{transform:translateY(0);opacity:1}}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:0.5}}
+.pulse{animation:pulse 1.5s infinite}
+
+/* ===== SCROLL ===== */
+.screen::-webkit-scrollbar{width:4px}
+.screen::-webkit-scrollbar-thumb{background:var(--text3);border-radius:4px}
+
+/* ===== LOGO ===== */
+.logo{margin:40px 0 16px;text-align:center}
+.logo-icon{font-size:64px;display:block;margin-bottom:8px}
+
+/* ===== CONNECTION STATUS ===== */
+.conn-status{display:inline-flex;align-items:center;gap:6px;font-size:12px;color:var(--text3);margin:4px 0}
+.conn-dot{width:8px;height:8px;border-radius:50%;background:var(--green)}
+.conn-dot.off{background:var(--red)}
+
+/* ===== OVERLAY ===== */
+.overlay{position:fixed;inset:0;background:rgba(15,15,26,0.92);display:flex;align-items:center;justify-content:center;
+  z-index:900;padding:20px}
+.overlay .card{max-width:360px;width:100%;text-align:center}
+</style>
+</head>
+<body>
+<div id="app">
+
+<!-- ===== SCREEN: MAIN MENU ===== -->
+<div class="screen active" id="s-menu">
+  <div class="spacer"></div>
+  <div class="logo">
+    <span class="logo-icon">&#128373;&#65039;</span>
+    <h1>THE HIDDEN WORD</h1>
+    <p class="subtitle">A social deduction mystery game<br>4-10 players &bull; each on their own phone</p>
+  </div>
+  <div class="gap2"></div>
+  <div class="card card-glow" style="text-align:center">
+    <p style="font-size:14px;color:var(--text2);line-height:1.7">
+      A crime has been committed. The <b style="color:var(--green)">Witness</b> knows everything.
+      <b style="color:var(--blue)">Detectives</b> get subtle clues.
+      The <b style="color:var(--red)">Suspect</b> bluffs their way through.
+      The <b style="color:var(--gold)">Judge</b> makes the final call.
+    </p>
+  </div>
+  <div class="gap2"></div>
+  <button class="btn btn-gold" onclick="showScreen('s-create')">Create Game</button>
+  <div class="gap"></div>
+  <button class="btn btn-outline" onclick="showScreen('s-join')">Join Game</button>
+  <div class="gap"></div>
+  <button class="btn btn-outline" onclick="showScreen('s-rules')" style="border-color:var(--text3);color:var(--text2)">How to Play</button>
+  <div class="spacer"></div>
+</div>
+
+<!-- ===== SCREEN: RULES ===== -->
+<div class="screen" id="s-rules">
+  <div class="gap2"></div>
+  <h2>How to Play</h2>
+  <div class="gap"></div>
+  <div class="card" style="line-height:1.8;font-size:14px;color:var(--text2)">
+    <p><b style="color:var(--gold)">Setup:</b> One player creates a game and shares the room code. Others join on their phones.</p>
+    <div class="gap"></div>
+    <p><b style="color:var(--blue)">Stage 1 &mdash; Location:</b> A 3&times;3 word grid appears. Detectives share their clues. Everyone discusses. The Judge picks the location.</p>
+    <div class="gap"></div>
+    <p><b style="color:var(--red)">Stage 2 &mdash; Weapon:</b> New grid, new clues. Same flow. Judge picks the weapon.</p>
+    <div class="gap"></div>
+    <p><b style="color:var(--purple)">Stage 3 &mdash; Suspect:</b> Players discuss who the Suspect is. Judge picks a player. Then Suspects guess the Witness.</p>
+    <div class="gap2"></div>
+    <p><b style="color:var(--green)">Team Wins:</b> Both words correct AND Witness not exposed.</p>
+    <p><b style="color:var(--red)">Suspects Win:</b> Wrong guess OR Witness identified.</p>
+    <div class="gap2"></div>
+    <p><b style="color:var(--text)">Roles:</b></p>
+    <p>&#9878;&#65039; <b>Judge</b> &mdash; No info. Listens and makes final picks.</p>
+    <p>&#128065;&#65039; <b>Witness</b> &mdash; Knows both words. Helps subtly.</p>
+    <p>&#128270; <b>Detective</b> &mdash; Gets a subtle clue each round. Shares and deduces.</p>
+    <p>&#128308; <b>Suspect</b> &mdash; No info. Pretends to be a Detective and misleads.</p>
+  </div>
+  <div class="gap2"></div>
+  <button class="btn btn-outline" onclick="showScreen('s-menu')">Back</button>
+  <div class="gap2"></div>
+</div>
+
+<!-- ===== SCREEN: CREATE GAME ===== -->
+<div class="screen" id="s-create">
+  <div class="spacer"></div>
+  <h2>Create Game</h2>
+  <h3>You'll be the host</h3>
+  <div class="gap2"></div>
+  <input type="text" id="host-name-input" placeholder="Your name..." maxlength="20" autocomplete="off">
+  <div class="gap2"></div>
+  <button class="btn btn-gold" id="btn-create" onclick="createRoom()">Create Room</button>
+  <div class="gap"></div>
+  <button class="btn btn-outline" onclick="showScreen('s-menu')">Back</button>
+  <div class="spacer"></div>
+  <div id="create-status" style="text-align:center;font-size:13px;color:var(--text3)"></div>
+  <div class="gap"></div>
+</div>
+
+<!-- ===== SCREEN: JOIN GAME ===== -->
+<div class="screen" id="s-join">
+  <div class="spacer"></div>
+  <h2>Join Game</h2>
+  <h3>Enter the room code</h3>
+  <div class="gap2"></div>
+  <input type="text" id="join-code-input" placeholder="Room code (4 letters)" maxlength="4" autocomplete="off"
+    style="text-align:center;font-size:24px;letter-spacing:8px;text-transform:uppercase;font-weight:800;font-family:'Courier New',monospace">
+  <div class="gap"></div>
+  <input type="text" id="join-name-input" placeholder="Your name..." maxlength="20" autocomplete="off">
+  <div class="gap2"></div>
+  <button class="btn btn-gold" id="btn-join" onclick="joinRoom()">Join Room</button>
+  <div class="gap"></div>
+  <button class="btn btn-outline" onclick="showScreen('s-menu')">Back</button>
+  <div class="spacer"></div>
+  <div id="join-status" style="text-align:center;font-size:13px;color:var(--text3)"></div>
+  <div class="gap"></div>
+</div>
+
+<!-- ===== SCREEN: LOBBY ===== -->
+<div class="screen" id="s-lobby">
+  <div class="gap2"></div>
+  <h3>Room Code</h3>
+  <div class="room-code" id="lobby-code"></div>
+  <button class="btn btn-outline btn-sm" onclick="shareRoom()" style="margin:0 auto 12px;display:block;font-size:13px;padding:8px 20px">
+    Share Code
+  </button>
+  <div class="gap"></div>
+  <h3 id="lobby-count">Players (0/10)</h3>
+  <div class="gap"></div>
+  <div id="lobby-players"></div>
+  <div class="spacer"></div>
+  <div id="lobby-role-preview" class="card" style="font-size:13px;color:var(--text2);display:none;text-align:center;margin-bottom:12px"></div>
+  <button class="btn btn-gold" id="btn-start-game" style="display:none" onclick="hostStartGame()">Start Game</button>
+  <p id="lobby-wait" class="waiting" style="display:none">Waiting for host to start<span class="dots"></span></p>
+  <div class="gap"></div>
+  <button class="btn btn-outline" onclick="leaveGame()" style="border-color:var(--red);color:var(--red);font-size:14px">Leave Game</button>
+  <div class="gap"></div>
+</div>
+
+<!-- ===== SCREEN: ROLE REVEAL ===== -->
+<div class="screen" id="s-role">
+  <div class="spacer"></div>
+  <h3>Your Secret Role</h3>
+  <div class="role-card-container">
+    <div class="role-card" id="role-card" onclick="flipRole()">
+      <div class="face front">
+        <span style="font-size:56px">&#10068;</span>
+      </div>
+      <div class="face back card-glow" id="role-back"></div>
+    </div>
+  </div>
+  <button class="btn btn-gold" id="btn-ready" style="display:none" onclick="confirmReady()">I'm Ready</button>
+  <p id="ready-wait" class="waiting" style="display:none">Waiting for others<span class="dots"></span></p>
+  <div class="spacer"></div>
+</div>
+
+<!-- ===== SCREEN: GAME (prep + discussion) ===== -->
+<div class="screen" id="s-game">
+  <div class="gap"></div>
+  <div id="game-badge" style="text-align:center"></div>
+  <h2 id="game-title"></h2>
+  <div id="game-role-info"></div>
+  <div class="word-grid" id="game-grid"></div>
+  <div class="timer-wrap">
+    <div class="timer-ring"><svg viewBox="0 0 100 100"><circle class="bg" cx="50" cy="50" r="44"/><circle class="fg" id="game-timer-fg" cx="50" cy="50" r="44"/></svg><div class="timer-digits" id="game-timer-digits">0</div></div>
+    <div class="timer-label" id="game-timer-label">PREPARATION</div>
+  </div>
+  <div class="gap"></div>
+  <p style="text-align:center;font-size:13px;color:var(--text3)" id="game-hint-text"></p>
+  <div class="gap"></div>
+  <button class="btn btn-outline" id="btn-end-discuss" style="display:none" onclick="endDiscussionEarly()">End Discussion Early</button>
+  <div class="gap"></div>
+</div>
+
+<!-- ===== SCREEN: JUDGE PICK ===== -->
+<div class="screen" id="s-judge">
+  <div class="gap"></div>
+  <div id="judge-badge" style="text-align:center"></div>
+  <h2 id="judge-title"></h2>
+  <h3 id="judge-sub"></h3>
+  <div id="judge-role-info"></div>
+  <div class="gap"></div>
+  <div class="word-grid" id="judge-grid"></div>
+  <div class="player-list" id="judge-players" style="display:none"></div>
+  <div class="spacer"></div>
+  <div id="judge-waiting" class="waiting" style="display:none">Waiting for Judge's decision<span class="dots"></span></div>
+  <button class="btn btn-gold" id="btn-judge-confirm" style="display:none" disabled onclick="judgeConfirmPick()">Confirm Selection</button>
+  <div class="gap2"></div>
+</div>
+
+<!-- ===== SCREEN: STAGE RESULT ===== -->
+<div class="screen" id="s-result">
+  <div class="spacer"></div>
+  <div id="result-content" style="text-align:center"></div>
+  <div class="gap2"></div>
+  <button class="btn btn-gold" id="btn-next-stage" style="display:none" onclick="requestNextStage()">Next Stage</button>
+  <p id="result-wait" class="waiting" style="display:none">Continuing<span class="dots"></span></p>
+  <div class="spacer"></div>
+</div>
+
+<!-- ===== SCREEN: SUSPECT GUESS ===== -->
+<div class="screen" id="s-suspect">
+  <div class="gap2"></div>
+  <div class="stage-badge sus">&#128308; Suspect's Turn</div>
+  <div id="suspect-content"></div>
+  <div class="spacer"></div>
+  <button class="btn btn-red" id="btn-suspect-confirm" style="display:none" disabled onclick="suspectConfirmVote()">Confirm Guess</button>
+  <p id="suspect-wait" class="waiting" style="display:none">Suspects are voting<span class="dots"></span></p>
+  <div class="gap2"></div>
+</div>
+
+<!-- ===== SCREEN: GAME OVER ===== -->
+<div class="screen" id="s-gameover">
+  <div class="spacer"></div>
+  <div id="gameover-content" style="text-align:center"></div>
+  <div class="gap2"></div>
+  <div id="gameover-roles"></div>
+  <div class="gap2"></div>
+  <button class="btn btn-gold" id="btn-play-again" style="display:none" onclick="playAgain()">Play Again</button>
+  <div class="gap"></div>
+  <button class="btn btn-outline" onclick="leaveGame()">Leave Game</button>
+  <div class="spacer"></div>
+</div>
+
+</div>
+
+<!-- Disconnect overlay -->
+<div class="overlay" id="disconnect-overlay" style="display:none">
+  <div class="card card-glow">
+    <div style="font-size:48px;margin-bottom:12px">&#9888;&#65039;</div>
+    <h2 style="color:var(--red)">Disconnected</h2>
+    <p class="subtitle" id="disconnect-msg">Connection lost.</p>
+    <div class="gap2"></div>
+    <button class="btn btn-gold" onclick="location.reload()">Back to Menu</button>
+  </div>
+</div>
+
+<div id="toast-container"></div>
+
+<script>
+// ======================== WORD BANKS ========================
+const LOCATIONS = [
+  'Rooftop','Casino','Kitchen','Subway','Library','Hospital','Beach','Airport','Museum',
+  'Warehouse','Mansion','Garage','School','Theater','Docks','Prison','Church','Penthouse',
+  'Forest','Market','Lab','Courtroom','Hotel','Stadium','Cemetery','Lighthouse','Bunker',
+  'Yacht','Train Station','Nightclub','Office','Parking Lot','Bank','Restaurant','Gym',
+  'Farm','Aquarium','Observatory','Mall','Spa'
+];
+const WEAPONS = [
+  'Knife','Poison','Gun','Rope','Wrench','Candlestick','Axe','Crowbar','Scissors',
+  'Hammer','Syringe','Brick','Pipe','Crossbow','Chainsaw','Shovel','Ice Pick','Bat',
+  'Dagger','Grenade','Taser','Machete','Mallet','Scalpel','Drill','Trophy','Frying Pan',
+  'Whip','Pitchfork','Hatchet','Spear','Saw','Torch','Bolt Cutter','Chain','Stiletto',
+  'Blowdart','Garrote','Flare Gun','Sledgehammer'
+];
+
+// ======================== HINT BANK ========================
+const HINTS = {
+  // Locations
+  'Rooftop':['elevated','windy','urban view','open air'],
+  'Casino':['gambling','neon lights','card games','chips'],
+  'Kitchen':['cooking','utensils','stove','ingredients'],
+  'Subway':['underground','rails','tunnels','commuters'],
+  'Library':['books','quiet','shelves','reading'],
+  'Hospital':['medical','sterile','white coats','beeping'],
+  'Beach':['sandy','waves','salty','sunny'],
+  'Airport':['flights','luggage','runways','boarding'],
+  'Museum':['artifacts','exhibits','guided tours','historical'],
+  'Warehouse':['storage','crates','industrial','spacious'],
+  'Mansion':['grand','wealthy','chandeliers','estate'],
+  'Garage':['cars','tools','oil stains','concrete'],
+  'School':['students','desks','chalk','bells'],
+  'Theater':['stage','curtains','performance','spotlights'],
+  'Docks':['water','boats','cargo','seagulls'],
+  'Prison':['cells','guards','bars','locked'],
+  'Church':['worship','bells','stained glass','pews'],
+  'Penthouse':['luxury','top floor','skyline','elegant'],
+  'Forest':['trees','wildlife','leaves','trails'],
+  'Market':['vendors','fresh produce','bargaining','stalls'],
+  'Lab':['experiments','chemicals','microscope','research'],
+  'Courtroom':['trial','jury','gavel','testimony'],
+  'Hotel':['rooms','lobby','check-in','guests'],
+  'Stadium':['sports','crowds','cheering','scoreboard'],
+  'Cemetery':['graves','stones','memorial','flowers'],
+  'Lighthouse':['coastal','beacon','tower','isolated'],
+  'Bunker':['underground','reinforced','shelter','concrete'],
+  'Yacht':['luxury','ocean','sailing','anchor'],
+  'Train Station':['platform','tracks','departures','tickets'],
+  'Nightclub':['dancing','loud music','dark','DJ booth'],
+  'Office':['desks','computers','meetings','cubicles'],
+  'Parking Lot':['cars','concrete','spaces','barriers'],
+  'Bank':['money','vault','tellers','security'],
+  'Restaurant':['dining','menu','waiters','cuisine'],
+  'Gym':['weights','exercise','sweat','treadmill'],
+  'Farm':['animals','crops','rural','barn'],
+  'Aquarium':['fish','glass tanks','marine','underwater'],
+  'Observatory':['stars','telescope','dome','planets'],
+  'Mall':['shopping','stores','escalators','bags'],
+  'Spa':['relaxation','massage','steam','towels'],
+  // Weapons
+  'Knife':['sharp','metallic','blade','kitchen tool'],
+  'Poison':['liquid','chemical','tasteless','vial'],
+  'Gun':['loud','trigger','barrel','ranged'],
+  'Rope':['fiber','coiled','knotted','binding'],
+  'Wrench':['heavy metal','mechanical','twisting','toolbox'],
+  'Candlestick':['brass','wax','old-fashioned','heavy base'],
+  'Axe':['chopping','wooden handle','splitting','lumberjack'],
+  'Crowbar':['prying','iron','leverage','bent'],
+  'Scissors':['two blades','cutting','handles','snipping'],
+  'Hammer':['pounding','nails','heavy head','construction'],
+  'Syringe':['needle','injection','medical','dose'],
+  'Brick':['rough','heavy','rectangular','masonry'],
+  'Pipe':['hollow','cylindrical','plumbing','metal tube'],
+  'Crossbow':['bolts','silent','aimed','medieval'],
+  'Chainsaw':['motor','teeth','noisy','vibrating'],
+  'Shovel':['digging','dirt','garden','long handle'],
+  'Ice Pick':['pointed','thin','cocktails','piercing'],
+  'Bat':['swinging','wooden','sports','grip'],
+  'Dagger':['short blade','double-edged','concealed','ancient'],
+  'Grenade':['explosive','pin','thrown','military'],
+  'Taser':['electric','stun','voltage','prongs'],
+  'Machete':['jungle','long blade','tropical','clearing'],
+  'Mallet':['wooden','flat head','croquet','soft blows'],
+  'Scalpel':['surgical','precision','thin','operating room'],
+  'Drill':['rotating','bits','power tool','holes'],
+  'Trophy':['decorative','award','heavy','display case'],
+  'Frying Pan':['cooking','round','cast iron','non-stick'],
+  'Whip':['cracking','leather','lashing','flexible'],
+  'Pitchfork':['prongs','farming','hay','pointed'],
+  'Hatchet':['small axe','camping','compact','one-hand'],
+  'Spear':['thrown','pointed tip','primitive','long reach'],
+  'Saw':['teeth','back and forth','sawdust','wood'],
+  'Torch':['fire','burning','light source','held'],
+  'Bolt Cutter':['jaws','cutting locks','industrial','heavy'],
+  'Chain':['links','metal','rattling','heavy'],
+  'Stiletto':['thin blade','Italian','elegant','concealed'],
+  'Blowdart':['tube','breath-powered','silent','tribal'],
+  'Garrote':['wire','thin','silent','from behind'],
+  'Flare Gun':['bright','signaling','emergency','colorful'],
+  'Sledgehammer':['massive','two-handed','demolition','crushing']
+};
+
+function getHint(word) {
+  const hints = HINTS[word];
+  if (!hints) return 'mysterious';
+  return hints[Math.floor(Math.random() * hints.length)];
+}
+
+// ======================== STATE ========================
+const NET = {
+  peer: null,
+  connections: {},   // host: {peerId: {conn, name}}
+  hostConn: null,    // non-host: connection to host
+  isHost: false,
+  roomCode: '',
+  myName: '',
+  myId: '',
+  players: [],       // [{name, id}]
+  heartbeat: null,
+};
+
+let G = {
+  myRole: '',
+  locationHint: '',
+  weaponHint: '',
+  locationWord: '',
+  weaponWord: '',
+  phase: '',
+  locationGrid: [],
+  weaponGrid: [],
+  players: [],
+  roles: {},
+  timerTotal: 0,
+  timerRemaining: 0,
+  judgeSelection: null,
+  suspectVote: null,
+};
+
+let HOST = null;
+
+// ======================== UTILITIES ========================
+function esc(s) { const d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
+
+function shuffle(arr) {
+  const a = [...arr];
+  for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; }
+  return a;
+}
+
+function generateRoomCode() {
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ';
+  let code = '';
+  for (let i = 0; i < 4; i++) code += chars[Math.floor(Math.random() * chars.length)];
+  return code;
+}
+
+function toast(msg, type = 'info') {
+  const el = document.createElement('div');
+  el.className = 'toast ' + type;
+  el.textContent = msg;
+  document.getElementById('toast-container').appendChild(el);
+  setTimeout(() => { el.style.opacity = '0'; el.style.transition = 'opacity .3s'; setTimeout(() => el.remove(), 300); }, 3000);
+}
+
+function getRoleDistribution(count) {
+  let suspects = 1;
+  if (count >= 6) suspects = 2;
+  if (count >= 9) suspects = 3;
+  return { judge: 1, witness: 1, suspects, detectives: count - 2 - suspects };
+}
+
+// ======================== SCREEN MANAGEMENT ========================
+function showScreen(id) {
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+}
+
+// ======================== NETWORKING ========================
+function createRoom() {
+  const name = document.getElementById('host-name-input').value.trim();
+  if (!name) { toast('Enter your name', 'error'); return; }
+
+  document.getElementById('btn-create').disabled = true;
+  document.getElementById('create-status').textContent = 'Creating room...';
+
+  NET.myName = name;
+  NET.isHost = true;
+  NET.roomCode = generateRoomCode();
+  const peerId = 'hiddenword-' + NET.roomCode;
+
+  NET.peer = new Peer(peerId);
+
+  NET.peer.on('open', (id) => {
+    NET.myId = id;
+    NET.players = [{ name: NET.myName, id: NET.myId }];
+    showLobby();
+    toast('Room created!', 'success');
+  });
+
+  NET.peer.on('connection', (conn) => {
+    conn.on('open', () => {
+      // Wait for join message
+    });
+    conn.on('data', (data) => handleHostReceive(conn, data));
+    conn.on('close', () => handlePlayerDisconnect(conn.peer));
+    conn.on('error', () => handlePlayerDisconnect(conn.peer));
+  });
+
+  NET.peer.on('error', (err) => {
+    if (err.type === 'unavailable-id') {
+      // Room code taken, retry
+      NET.peer.destroy();
+      NET.roomCode = generateRoomCode();
+      const newId = 'hiddenword-' + NET.roomCode;
+      NET.peer = new Peer(newId);
+      NET.peer.on('open', (id) => {
+        NET.myId = id;
+        NET.players = [{ name: NET.myName, id: NET.myId }];
+        showLobby();
+        toast('Room created!', 'success');
+      });
+      NET.peer.on('connection', (conn) => {
+        conn.on('data', (data) => handleHostReceive(conn, data));
+        conn.on('close', () => handlePlayerDisconnect(conn.peer));
+        conn.on('error', () => handlePlayerDisconnect(conn.peer));
+      });
+      NET.peer.on('error', handlePeerError);
+    } else {
+      handlePeerError(err);
+    }
+  });
+}
+
+function joinRoom() {
+  const code = document.getElementById('join-code-input').value.trim().toUpperCase();
+  const name = document.getElementById('join-name-input').value.trim();
+  if (!code || code.length !== 4) { toast('Enter a 4-letter room code', 'error'); return; }
+  if (!name) { toast('Enter your name', 'error'); return; }
+
+  document.getElementById('btn-join').disabled = true;
+  document.getElementById('join-status').textContent = 'Connecting...';
+
+  NET.myName = name;
+  NET.isHost = false;
+  NET.roomCode = code;
+
+  NET.peer = new Peer();
+
+  NET.peer.on('open', (id) => {
+    NET.myId = id;
+    const hostId = 'hiddenword-' + code;
+    const conn = NET.peer.connect(hostId, { reliable: true });
+
+    conn.on('open', () => {
+      NET.hostConn = conn;
+      conn.send({ type: 'join', name: NET.myName, id: NET.myId });
+    });
+
+    conn.on('data', (data) => handleClientReceive(data));
+
+    conn.on('close', () => {
+      showDisconnect('Host disconnected. The game has ended.');
+    });
+
+    conn.on('error', () => {
+      showDisconnect('Connection to host lost.');
+    });
+
+    // Timeout for connection
+    setTimeout(() => {
+      if (!NET.hostConn) {
+        toast('Could not connect. Check the room code.', 'error');
+        document.getElementById('btn-join').disabled = false;
+        document.getElementById('join-status').textContent = '';
+        if (NET.peer) NET.peer.destroy();
+      }
+    }, 8000);
+  });
+
+  NET.peer.on('error', (err) => {
+    if (err.type === 'peer-unavailable') {
+      toast('Room not found. Check the code.', 'error');
+      document.getElementById('btn-join').disabled = false;
+      document.getElementById('join-status').textContent = '';
+    } else {
+      handlePeerError(err);
+    }
+  });
+}
+
+function handlePeerError(err) {
+  console.error('PeerJS error:', err);
+  toast('Connection error: ' + (err.message || err.type), 'error');
+  document.getElementById('btn-create').disabled = false;
+  document.getElementById('btn-join').disabled = false;
+  document.getElementById('create-status').textContent = '';
+  document.getElementById('join-status').textContent = '';
+}
+
+function broadcast(msg) {
+  Object.values(NET.connections).forEach(({ conn }) => {
+    if (conn.open) conn.send(msg);
+  });
+  // Host also processes the message
+  handleClientReceive(msg);
+}
+
+function sendToHost(msg) {
+  if (NET.isHost) {
+    handleHostReceive(null, { ...msg, _fromHost: true });
+  } else if (NET.hostConn && NET.hostConn.open) {
+    NET.hostConn.send(msg);
+  }
+}
+
+function sendToPlayer(targetId, msg) {
+  if (targetId === NET.myId) {
+    handleClientReceive(msg);
+  } else {
+    const c = NET.connections[targetId];
+    if (c && c.conn.open) c.conn.send(msg);
+  }
+}
+
+// ======================== HOST MESSAGE HANDLER ========================
+function handleHostReceive(conn, data) {
+  const senderId = data._fromHost ? NET.myId : (conn ? conn.peer : null);
+
+  switch (data.type) {
+    case 'join': {
+      if (NET.players.length >= 10) {
+        if (conn) conn.send({ type: 'error', msg: 'Room is full' });
+        return;
+      }
+      if (NET.players.some(p => p.name === data.name)) {
+        if (conn) conn.send({ type: 'error', msg: 'Name already taken' });
+        return;
+      }
+      if (conn) {
+        NET.connections[conn.peer] = { conn, name: data.name };
+      }
+      NET.players.push({ name: data.name, id: conn ? conn.peer : NET.myId });
+      broadcast({ type: 'lobby', players: NET.players, roomCode: NET.roomCode });
+      toast(data.name + ' joined', 'success');
+      break;
+    }
+    case 'ready': {
+      if (HOST && HOST.readySet) {
+        HOST.readySet.add(data.name);
+        if (HOST.readySet.size >= NET.players.length) {
+          startFirstPhase();
+        }
+      }
+      break;
+    }
+    case 'judge-pick': {
+      if (!HOST) return;
+      HOST.judgeGuesses[data.stage] = data.value;
+      if (data.stage === 'location' || data.stage === 'weapon') {
+        const correct = data.stage === 'location' ? HOST.correctLocation : HOST.correctWeapon;
+        const isCorrect = data.value === correct;
+        broadcast({
+          type: 'result',
+          stage: data.stage,
+          correct: isCorrect,
+          guessed: data.value,
+          actual: correct
+        });
+      } else if (data.stage === 'suspect') {
+        HOST.judgeGuesses.suspect = data.value;
+        broadcast({ type: 'phase', phase: 'suspect_guess' });
+      }
+      break;
+    }
+    case 'end-discussion': {
+      if (HOST && HOST.timerInterval) {
+        clearInterval(HOST.timerInterval);
+        HOST.timerInterval = null;
+        const stage = G.phase.includes('location') ? 'location' : 'weapon';
+        broadcast({ type: 'phase', phase: stage + '_judge' });
+      }
+      break;
+    }
+    case 'next-stage': {
+      if (!HOST) return;
+      if (G.phase === 'location_result') {
+        broadcast({ type: 'phase', phase: 'weapon_prep', timer: 30 });
+        hostStartTimer(30, () => {
+          broadcast({ type: 'phase', phase: 'weapon_discuss', timer: 90 });
+          hostStartTimer(90, () => {
+            broadcast({ type: 'phase', phase: 'weapon_judge' });
+          });
+        });
+      } else if (G.phase === 'weapon_result') {
+        broadcast({ type: 'phase', phase: 'suspect_judge' });
+      }
+      break;
+    }
+    case 'suspect-vote': {
+      if (!HOST) return;
+      HOST.suspectVotes[data.name] = data.target;
+      const suspectNames = Object.keys(HOST.roles).filter(n => HOST.roles[n] === 'Suspect');
+      const votedCount = suspectNames.filter(n => HOST.suspectVotes[n]).length;
+      if (votedCount >= suspectNames.length) {
+        // All suspects voted — check if any got the witness
+        const witnessName = Object.keys(HOST.roles).find(n => HOST.roles[n] === 'Witness');
+        const witnessExposed = suspectNames.some(n => HOST.suspectVotes[n] === witnessName);
+        const locCorrect = HOST.judgeGuesses.location === HOST.correctLocation;
+        const weapCorrect = HOST.judgeGuesses.weapon === HOST.correctWeapon;
+        const teamWins = locCorrect && weapCorrect && !witnessExposed;
+
+        broadcast({
+          type: 'gameover',
+          teamWins,
+          locCorrect,
+          weapCorrect,
+          witnessExposed,
+          judgeGuesses: HOST.judgeGuesses,
+          suspectVotes: HOST.suspectVotes,
+          correctLocation: HOST.correctLocation,
+          correctWeapon: HOST.correctWeapon,
+          roles: HOST.roles
+        });
+      }
+      break;
+    }
+    case 'play-again': {
+      if (HOST && HOST.timerInterval) clearInterval(HOST.timerInterval);
+      HOST = null;
+      broadcast({ type: 'lobby', players: NET.players, roomCode: NET.roomCode });
+      break;
+    }
+  }
+}
+
+// ======================== CLIENT MESSAGE HANDLER ========================
+function handleClientReceive(data) {
+  switch (data.type) {
+    case 'lobby':
+      NET.players = data.players;
+      NET.roomCode = data.roomCode;
+      G.myRole = '';
+      G.phase = '';
+      G.judgeSelection = null;
+      G.suspectVote = null;
+      showLobby();
+      break;
+    case 'error':
+      toast(data.msg, 'error');
+      document.getElementById('btn-join').disabled = false;
+      document.getElementById('join-status').textContent = '';
+      break;
+    case 'role': {
+      G.myRole = data.role;
+      G.locationHint = data.locationHint || '';
+      G.weaponHint = data.weaponHint || '';
+      G.locationWord = data.locationWord || '';
+      G.weaponWord = data.weaponWord || '';
+      G.locationGrid = data.locationGrid;
+      G.weaponGrid = data.weaponGrid;
+      G.players = data.players;
+      G.phase = 'role_reveal';
+      showRoleReveal();
+      break;
+    }
+    case 'phase':
+      G.phase = data.phase;
+      G.timerTotal = data.timer || 0;
+      G.timerRemaining = data.timer || 0;
+      G.judgeSelection = null;
+      G.suspectVote = null;
+      renderPhase();
+      break;
+    case 'tick':
+      G.timerRemaining = data.t;
+      updateTimerDisplay();
+      break;
+    case 'result':
+      G.phase = data.stage + '_result';
+      showStageResult(data);
+      break;
+    case 'gameover':
+      G.phase = 'gameover';
+      G.roles = data.roles;
+      showGameOver(data);
+      break;
+  }
+}
+
+function handlePlayerDisconnect(peerId) {
+  const entry = NET.connections[peerId];
+  if (entry) {
+    toast(entry.name + ' disconnected', 'error');
+    NET.players = NET.players.filter(p => p.id !== peerId);
+    delete NET.connections[peerId];
+    // Update lobby if still in lobby
+    if (G.phase === '' || G.phase === 'lobby') {
+      broadcast({ type: 'lobby', players: NET.players, roomCode: NET.roomCode });
+    }
+  }
+}
+
+function showDisconnect(msg) {
+  document.getElementById('disconnect-msg').textContent = msg;
+  document.getElementById('disconnect-overlay').style.display = 'flex';
+}
+
+function leaveGame() {
+  if (NET.peer) NET.peer.destroy();
+  clearInterval(NET.heartbeat);
+  location.reload();
+}
+
+// ======================== LOBBY ========================
+function showLobby() {
+  document.getElementById('lobby-code').textContent = NET.roomCode;
+  document.getElementById('lobby-count').textContent = `Players (${NET.players.length}/10)`;
+
+  const listEl = document.getElementById('lobby-players');
+  listEl.innerHTML = NET.players.map((p, i) =>
+    `<div class="lobby-player"><span class="dot"></span><span class="name">${esc(p.name)}</span>${i === 0 ? '<span class="host-tag">HOST</span>' : ''}</div>`
+  ).join('');
+
+  const startBtn = document.getElementById('btn-start-game');
+  const waitMsg = document.getElementById('lobby-wait');
+
+  if (NET.isHost) {
+    startBtn.style.display = 'block';
+    startBtn.disabled = NET.players.length < 4;
+    waitMsg.style.display = 'none';
+  } else {
+    startBtn.style.display = 'none';
+    waitMsg.style.display = 'block';
+  }
+
+  // Role preview
+  const preview = document.getElementById('lobby-role-preview');
+  if (NET.players.length >= 4) {
+    const d = getRoleDistribution(NET.players.length);
+    preview.style.display = 'block';
+    preview.innerHTML = `<b>${NET.players.length} players:</b> ${d.judge} Judge &bull; ${d.witness} Witness &bull; ${d.suspects} Suspect${d.suspects>1?'s':''} &bull; ${d.detectives} Detective${d.detectives>1?'s':''}`;
+  } else {
+    preview.style.display = 'none';
+  }
+
+  showScreen('s-lobby');
+}
+
+function shareRoom() {
+  const text = `Join my Hidden Word game!\nRoom code: ${NET.roomCode}`;
+  if (navigator.share) {
+    navigator.share({ title: 'The Hidden Word', text }).catch(() => {});
+  } else {
+    navigator.clipboard.writeText(NET.roomCode).then(() => toast('Code copied!', 'success')).catch(() => {});
+  }
+}
+
+// ======================== HOST: START GAME ========================
+function hostStartGame() {
+  if (NET.players.length < 4) return;
+
+  HOST = {
+    roles: {},
+    correctLocation: '',
+    correctWeapon: '',
+    locationGrid: [],
+    weaponGrid: [],
+    hints: {},
+    readySet: new Set(),
+    timerInterval: null,
+    timerRemaining: 0,
+    judgeGuesses: { location: null, weapon: null, suspect: null },
+    suspectVotes: {},
+  };
+
+  const names = NET.players.map(p => p.name);
+  const dist = getRoleDistribution(names.length);
+  const shuffled = shuffle(names);
+
+  HOST.roles[shuffled[0]] = 'Judge';
+  HOST.roles[shuffled[1]] = 'Witness';
+  for (let i = 2; i < 2 + dist.suspects; i++) HOST.roles[shuffled[i]] = 'Suspect';
+  for (let i = 2 + dist.suspects; i < shuffled.length; i++) HOST.roles[shuffled[i]] = 'Detective';
+
+  // Generate grids
+  const locShuffle = shuffle(LOCATIONS);
+  HOST.correctLocation = locShuffle[0];
+  HOST.locationGrid = shuffle(locShuffle.slice(0, 9));
+
+  const weapShuffle = shuffle(WEAPONS);
+  HOST.correctWeapon = weapShuffle[0];
+  HOST.weaponGrid = shuffle(weapShuffle.slice(0, 9));
+
+  // Generate hints for detectives
+  names.forEach(name => {
+    if (HOST.roles[name] === 'Detective') {
+      HOST.hints[name] = {
+        location: getHint(HOST.correctLocation),
+        weapon: getHint(HOST.correctWeapon)
+      };
+    }
+  });
+
+  // Send private role data to each player
+  NET.players.forEach(p => {
+    const role = HOST.roles[p.name];
+    const msg = {
+      type: 'role',
+      role,
+      locationGrid: HOST.locationGrid,
+      weaponGrid: HOST.weaponGrid,
+      players: names,
+      locationHint: '',
+      weaponHint: '',
+      locationWord: '',
+      weaponWord: '',
+    };
+
+    if (role === 'Witness') {
+      msg.locationWord = HOST.correctLocation;
+      msg.weaponWord = HOST.correctWeapon;
+    } else if (role === 'Detective') {
+      msg.locationHint = HOST.hints[p.name].location;
+      msg.weaponHint = HOST.hints[p.name].weapon;
+    }
+
+    sendToPlayer(p.id, msg);
+  });
+}
+
+function startFirstPhase() {
+  broadcast({ type: 'phase', phase: 'location_prep', timer: 30 });
+  hostStartTimer(30, () => {
+    broadcast({ type: 'phase', phase: 'location_discuss', timer: 90 });
+    hostStartTimer(90, () => {
+      broadcast({ type: 'phase', phase: 'location_judge' });
+    });
+  });
+}
+
+function hostStartTimer(seconds, onDone) {
+  if (HOST.timerInterval) clearInterval(HOST.timerInterval);
+  HOST.timerRemaining = seconds;
+  HOST.timerInterval = setInterval(() => {
+    HOST.timerRemaining--;
+    broadcast({ type: 'tick', t: HOST.timerRemaining });
+    if (HOST.timerRemaining <= 0) {
+      clearInterval(HOST.timerInterval);
+      HOST.timerInterval = null;
+      onDone();
+    }
+  }, 1000);
+}
+
+// ======================== ROLE REVEAL ========================
+function showRoleReveal() {
+  const card = document.getElementById('role-card');
+  card.classList.remove('flipped');
+  document.getElementById('btn-ready').style.display = 'none';
+  document.getElementById('ready-wait').style.display = 'none';
+  showScreen('s-role');
+}
+
+function flipRole() {
+  const card = document.getElementById('role-card');
+  if (card.classList.contains('flipped')) return;
+  card.classList.add('flipped');
+  document.getElementById('btn-ready').style.display = 'block';
+
+  const role = G.myRole;
+  const back = document.getElementById('role-back');
+
+  let icon, color, infoHTML;
+  if (role === 'Judge') {
+    icon = '&#9878;&#65039;'; color = 'var(--gold)';
+    infoHTML = '<div style="color:var(--text2);font-size:14px;margin-top:12px">You have no information.<br>Listen to discussions and make the final call.</div>';
+  } else if (role === 'Witness') {
+    icon = '&#128065;&#65039;'; color = 'var(--green)';
+    infoHTML = `<div class="role-word">&#128205; ${esc(G.locationWord)}<br>&#128298; ${esc(G.weaponWord)}</div>
+      <div style="color:var(--text2);font-size:13px;margin-top:8px">Guide your team subtly. Don't get exposed!</div>`;
+  } else if (role === 'Detective') {
+    icon = '&#128270;'; color = 'var(--blue)';
+    infoHTML = '<div style="color:var(--text2);font-size:14px;margin-top:12px">You\'ll receive clues each round.<br>Share and deduce with your team!</div>';
+  } else {
+    icon = '&#128308;'; color = 'var(--red)';
+    infoHTML = '<div style="color:var(--text2);font-size:14px;margin-top:12px">You have no information.<br>Pretend to be a Detective and mislead everyone!</div>';
+  }
+
+  back.innerHTML = `<div class="role-icon">${icon}</div><div class="role-name" style="color:${color}">${role}</div>${infoHTML}`;
+  back.style.background = 'linear-gradient(135deg, var(--card), var(--card2))';
+}
+
+function confirmReady() {
+  document.getElementById('btn-ready').style.display = 'none';
+  document.getElementById('ready-wait').style.display = 'block';
+  sendToHost({ type: 'ready', name: NET.myName });
+}
+
+// ======================== PHASE RENDERING ========================
+function renderPhase() {
+  const phase = G.phase;
+
+  if (phase === 'location_prep' || phase === 'weapon_prep') {
+    renderGameScreen('prep', phase.includes('location') ? 'location' : 'weapon');
+  } else if (phase === 'location_discuss' || phase === 'weapon_discuss') {
+    renderGameScreen('discuss', phase.includes('location') ? 'location' : 'weapon');
+  } else if (phase === 'location_judge' || phase === 'weapon_judge') {
+    renderJudgeScreen(phase.includes('location') ? 'location' : 'weapon');
+  } else if (phase === 'suspect_judge') {
+    renderJudgeScreen('suspect');
+  } else if (phase === 'suspect_guess') {
+    renderSuspectScreen();
+  }
+}
+
+function renderGameScreen(mode, stage) {
+  const isLoc = stage === 'location';
+  const grid = isLoc ? G.locationGrid : G.weaponGrid;
+
+  // Badge
+  const badgeEl = document.getElementById('game-badge');
+  badgeEl.innerHTML = isLoc
+    ? '<div class="stage-badge loc">&#128205; Stage 1 &mdash; Location</div>'
+    : '<div class="stage-badge weap">&#128298; Stage 2 &mdash; Weapon</div>';
+
+  // Title
+  document.getElementById('game-title').textContent = mode === 'prep'
+    ? (isLoc ? 'Read the Location Grid' : 'Read the Weapon Grid')
+    : (isLoc ? 'Location Discussion' : 'Weapon Discussion');
+
+  // Role info
+  const roleInfoEl = document.getElementById('game-role-info');
+  roleInfoEl.innerHTML = getRoleInfoHTML(stage);
+
+  // Grid
+  const gridEl = document.getElementById('game-grid');
+  gridEl.innerHTML = grid.map(w => `<div class="word-cell">${esc(w)}</div>`).join('');
+
+  // Timer
+  document.getElementById('game-timer-label').textContent = mode === 'prep' ? 'PREPARATION' : 'DISCUSSION';
+  resetTimerRing(G.timerTotal);
+
+  // Hint text
+  document.getElementById('game-hint-text').textContent = mode === 'discuss'
+    ? 'Discuss openly. Detectives share clues. Suspects bluff!'
+    : 'Read the words silently. Prepare your strategy.';
+
+  // End discussion button (judge only, during discussion)
+  const endBtn = document.getElementById('btn-end-discuss');
+  endBtn.style.display = (mode === 'discuss' && G.myRole === 'Judge') ? 'block' : 'none';
+
+  showScreen('s-game');
+}
+
+function getRoleInfoHTML(stage) {
+  const isLoc = stage === 'location';
+  if (G.myRole === 'Judge') {
+    return '<div class="role-info judge">&#9878;&#65039; You are the Judge &mdash; Listen and decide</div>';
+  } else if (G.myRole === 'Witness') {
+    const word = isLoc ? G.locationWord : G.weaponWord;
+    return `<div class="role-info witness">&#128065;&#65039; The ${isLoc ? 'Location' : 'Weapon'} is:<span class="hint-word">${esc(word)}</span></div>`;
+  } else if (G.myRole === 'Detective') {
+    const hint = isLoc ? G.locationHint : G.weaponHint;
+    return `<div class="role-info detective">&#128270; Your clue:<span class="hint-word">"${esc(hint)}"</span></div>`;
+  } else {
+    return '<div class="role-info suspect">&#128308; You are a Suspect &mdash; Blend in and mislead!</div>';
+  }
+}
+
+function endDiscussionEarly() {
+  sendToHost({ type: 'end-discussion' });
+}
+
+// ======================== TIMER DISPLAY ========================
+const CIRC = 2 * Math.PI * 44;
+
+function resetTimerRing(total) {
+  const fg = document.getElementById('game-timer-fg');
+  const digits = document.getElementById('game-timer-digits');
+  fg.style.strokeDasharray = CIRC;
+  fg.style.strokeDashoffset = 0;
+  fg.classList.remove('urgent');
+  digits.textContent = total;
+}
+
+function updateTimerDisplay() {
+  const fg = document.getElementById('game-timer-fg');
+  const digits = document.getElementById('game-timer-digits');
+  if (!fg || !digits) return;
+
+  const total = G.timerTotal;
+  const remaining = G.timerRemaining;
+  const pct = total > 0 ? 1 - remaining / total : 0;
+
+  fg.style.strokeDashoffset = CIRC * pct;
+  digits.textContent = remaining;
+  if (remaining <= 10) fg.classList.add('urgent');
+  else fg.classList.remove('urgent');
+}
+
+// ======================== JUDGE PICK ========================
+function renderJudgeScreen(stage) {
+  const isLoc = stage === 'location';
+  const isSuspect = stage === 'suspect';
+
+  // Badge
+  const badgeEl = document.getElementById('judge-badge');
+  if (isLoc) badgeEl.innerHTML = '<div class="stage-badge loc">&#128205; Stage 1 &mdash; Location</div>';
+  else if (isSuspect) badgeEl.innerHTML = '<div class="stage-badge sus">&#128308; Stage 3 &mdash; Suspect</div>';
+  else badgeEl.innerHTML = '<div class="stage-badge weap">&#128298; Stage 2 &mdash; Weapon</div>';
+
+  const isJudge = G.myRole === 'Judge';
+
+  // Role info: show during word stages, hide during suspect stage
+  if (isSuspect) {
+    document.getElementById('judge-role-info').innerHTML = '';
+  } else {
+    document.getElementById('judge-role-info').innerHTML = isJudge ? '' : getRoleInfoHTML(isLoc ? 'location' : 'weapon');
+  }
+
+  if (isJudge) {
+    document.getElementById('judge-title').textContent = isSuspect ? 'Identify the Suspect' : (isLoc ? 'Pick the Location' : 'Pick the Weapon');
+    document.getElementById('judge-sub').textContent = 'Make your choice';
+  } else {
+    document.getElementById('judge-title').textContent = isSuspect ? 'Suspect Identification' : (isLoc ? 'Location Pick' : 'Weapon Pick');
+    document.getElementById('judge-sub').textContent = isSuspect ? 'Judge is choosing...' : '';
+  }
+
+  // Grid / player list
+  const gridEl = document.getElementById('judge-grid');
+  const playersEl = document.getElementById('judge-players');
+  const confirmBtn = document.getElementById('btn-judge-confirm');
+  const waitEl = document.getElementById('judge-waiting');
+
+  if (isSuspect) {
+    gridEl.style.display = 'none';
+    gridEl.innerHTML = '';
+    playersEl.style.display = 'flex';
+    const allPlayers = G.players;
+    if (isJudge) {
+      playersEl.innerHTML = allPlayers.filter(p => p !== NET.myName).map(p =>
+        `<div class="player-chip interactive" onclick="selectJudgePick(this,'${esc(p)}')">${esc(p)}</div>`
+      ).join('');
+    } else {
+      playersEl.innerHTML = allPlayers.map(p =>
+        `<div class="player-chip">${esc(p)}</div>`
+      ).join('');
+    }
+  } else {
+    playersEl.style.display = 'none';
+    playersEl.innerHTML = '';
+    gridEl.style.display = 'grid';
+    const grid = isLoc ? G.locationGrid : G.weaponGrid;
+    if (isJudge) {
+      gridEl.innerHTML = grid.map(w =>
+        `<div class="word-cell interactive" onclick="selectJudgePick(this,'${esc(w)}')">${esc(w)}</div>`
+      ).join('');
+    } else {
+      gridEl.innerHTML = grid.map(w => `<div class="word-cell">${esc(w)}</div>`).join('');
+    }
+  }
+
+  if (isJudge) {
+    confirmBtn.style.display = 'block';
+    confirmBtn.disabled = true;
+    waitEl.style.display = 'none';
+  } else {
+    confirmBtn.style.display = 'none';
+    waitEl.style.display = 'block';
+  }
+
+  G.judgeSelection = null;
+  showScreen('s-judge');
+}
+
+function selectJudgePick(el, value) {
+  // Deselect all
+  el.parentElement.querySelectorAll('.selected').forEach(c => c.classList.remove('selected'));
+  el.classList.add('selected');
+  G.judgeSelection = value;
+  document.getElementById('btn-judge-confirm').disabled = false;
+}
+
+function judgeConfirmPick() {
+  if (!G.judgeSelection) return;
+  const stage = G.phase.replace('_judge', '');
+  sendToHost({ type: 'judge-pick', stage, value: G.judgeSelection });
+  document.getElementById('btn-judge-confirm').disabled = true;
+}
+
+// ======================== STAGE RESULT ========================
+function showStageResult(data) {
+  const isLoc = data.stage === 'location';
+  const icon = data.correct ? '&#9989;' : '&#10060;';
+  const cls = data.correct ? 'correct' : 'wrong';
+  const msg = data.correct ? 'Correct!' : 'Wrong!';
+
+  const content = document.getElementById('result-content');
+  content.innerHTML = `
+    <div class="stage-badge ${isLoc ? 'loc' : 'weap'}">${isLoc ? '&#128205;' : '&#128298;'} ${isLoc ? 'Location' : 'Weapon'}</div>
+    <div class="gap2"></div>
+    <div style="font-size:56px">${icon}</div>
+    <div class="gap"></div>
+    <div class="result-banner ${cls}">${msg}</div>
+    <p style="color:var(--text2);font-size:15px">The Judge picked: <b style="color:var(--text)">${esc(data.guessed)}</b></p>
+    ${!data.correct ? `<p style="color:var(--text3);font-size:14px;margin-top:4px">Correct answer: <b>${esc(data.actual)}</b></p>` : ''}
+  `;
+
+  // Judge gets the continue button (re-enable it each time)
+  const nextBtn = document.getElementById('btn-next-stage');
+  nextBtn.disabled = false;
+  const waitEl = document.getElementById('result-wait');
+  if (G.myRole === 'Judge') {
+    nextBtn.style.display = 'block';
+    waitEl.style.display = 'none';
+  } else {
+    nextBtn.style.display = 'none';
+    waitEl.style.display = 'block';
+  }
+
+  showScreen('s-result');
+}
+
+function requestNextStage() {
+  sendToHost({ type: 'next-stage' });
+  document.getElementById('btn-next-stage').disabled = true;
+}
+
+// ======================== SUSPECT GUESS ========================
+function renderSuspectScreen() {
+  const isSuspect = G.myRole === 'Suspect';
+  const contentEl = document.getElementById('suspect-content');
+  const confirmBtn = document.getElementById('btn-suspect-confirm');
+  const waitEl = document.getElementById('suspect-wait');
+
+  if (isSuspect) {
+    contentEl.innerHTML = `
+      <h2>Who is the Witness?</h2>
+      <h3>Pick the player you think is the Witness</h3>
+      <div class="gap"></div>
+      <div class="player-list" id="suspect-player-list">
+        ${G.players.filter(p => p !== NET.myName).map(p =>
+          `<div class="player-chip interactive" onclick="selectSuspectTarget(this,'${esc(p)}')">${esc(p)}</div>`
+        ).join('')}
+      </div>
+    `;
+    confirmBtn.style.display = 'block';
+    confirmBtn.disabled = true;
+    confirmBtn.textContent = 'Confirm Guess';
+    waitEl.style.display = 'none';
+  } else {
+    contentEl.innerHTML = `
+      <h2>Suspect Identification</h2>
+      <h3>The suspects are now guessing who the Witness is...</h3>
+    `;
+    confirmBtn.style.display = 'none';
+    waitEl.style.display = 'block';
+  }
+
+  G.suspectVote = null;
+  showScreen('s-suspect');
+}
+
+function selectSuspectTarget(el, name) {
+  document.querySelectorAll('#suspect-player-list .player-chip').forEach(c => c.classList.remove('selected'));
+  el.classList.add('selected');
+  G.suspectVote = name;
+  document.getElementById('btn-suspect-confirm').disabled = false;
+}
+
+function suspectConfirmVote() {
+  if (!G.suspectVote) return;
+  sendToHost({ type: 'suspect-vote', name: NET.myName, target: G.suspectVote });
+  document.getElementById('btn-suspect-confirm').disabled = true;
+  document.getElementById('btn-suspect-confirm').textContent = 'Vote Submitted';
+}
+
+// ======================== GAME OVER ========================
+function showGameOver(data) {
+  const content = document.getElementById('gameover-content');
+
+  if (data.teamWins) {
+    content.innerHTML = `
+      <div style="font-size:64px">&#127942;</div>
+      <div class="gap"></div>
+      <h1 style="color:var(--green)">Team Wins!</h1>
+      <p class="subtitle" style="margin-top:8px">Both words were correct and the Witness stayed hidden!</p>
+    `;
+  } else {
+    let reason = '';
+    if (!data.locCorrect) reason += 'Wrong location. ';
+    if (!data.weapCorrect) reason += 'Wrong weapon. ';
+    if (data.witnessExposed) reason += 'Witness was exposed! ';
+    content.innerHTML = `
+      <div style="font-size:64px">&#128308;</div>
+      <div class="gap"></div>
+      <h1 style="color:var(--red)">Suspects Win!</h1>
+      <p class="subtitle" style="margin-top:8px">${reason.trim()}</p>
+    `;
+  }
+
+  // Results summary
+  const suspectVoteNames = Object.entries(data.suspectVotes || {}).map(([s, t]) => `${esc(s)} guessed ${esc(t)}`).join(', ');
+  const summaryHTML = `
+    <div class="card" style="text-align:left;margin-top:8px">
+      <p style="font-size:13px;color:var(--text2);margin-bottom:8px"><b>Results:</b></p>
+      <p style="font-size:14px;margin-bottom:4px">${data.locCorrect ? '&#9989;' : '&#10060;'} Location: <b>${esc(data.judgeGuesses.location || '?')}</b> ${!data.locCorrect ? '(was ' + esc(data.correctLocation) + ')' : ''}</p>
+      <p style="font-size:14px;margin-bottom:4px">${data.weapCorrect ? '&#9989;' : '&#10060;'} Weapon: <b>${esc(data.judgeGuesses.weapon || '?')}</b> ${!data.weapCorrect ? '(was ' + esc(data.correctWeapon) + ')' : ''}</p>
+      <p style="font-size:14px;margin-bottom:4px">${data.judgeGuesses.suspect ? (data.roles[data.judgeGuesses.suspect] === 'Suspect' ? '&#9989;' : '&#10060;') : '&#10060;'} Suspect guess: <b>${esc(data.judgeGuesses.suspect || '?')}</b></p>
+      <p style="font-size:14px">${data.witnessExposed ? '&#10060;' : '&#9989;'} Witness exposed: <b>${data.witnessExposed ? 'Yes' : 'No'}</b></p>
+      ${suspectVoteNames ? `<p style="font-size:13px;color:var(--text3);margin-top:4px">${suspectVoteNames}</p>` : ''}
+    </div>
+  `;
+
+  // Role reveal
+  const rolesHTML = G.players.map(p => {
+    const role = data.roles[p];
+    const cls = role ? role.toLowerCase() : '';
+    return `<div class="reveal-role"><span class="rname">${esc(p)}</span><span class="rtag ${cls}">${role || '?'}</span></div>`;
+  }).join('');
+
+  document.getElementById('gameover-roles').innerHTML = summaryHTML + '<div class="gap"></div>' + rolesHTML;
+
+  // Play again button for host only
+  document.getElementById('btn-play-again').style.display = NET.isHost ? 'block' : 'none';
+
+  showScreen('s-gameover');
+}
+
+function playAgain() {
+  sendToHost({ type: 'play-again' });
+}
+
+// ======================== INIT ========================
+function init() {
+  // Check URL for room code
+  const params = new URLSearchParams(window.location.search);
+  const joinCode = params.get('join') || params.get('room');
+  if (joinCode) {
+    document.getElementById('join-code-input').value = joinCode.toUpperCase();
+    showScreen('s-join');
+  }
+}
+
+init();
+</script>
+</body>
+</html>
