@@ -320,14 +320,20 @@ input::placeholder{color:var(--text3)}
   <div class="spacer"></div>
 </div>
 
-<!-- ===== SCREEN: WAITING FOR PLAYERS ===== -->
+<!-- ===== SCREEN: LOADING / WAITING ===== -->
 <div class="screen" id="s-loading">
   <div class="spacer"></div>
   <div style="text-align:center">
-    <div style="font-size:48px;margin-bottom:16px">&#9203;</div>
-    <h2>Waiting for Players</h2>
-    <p class="subtitle" style="margin-top:8px">Everyone needs to confirm their role...</p>
+    <div id="loading-icon" style="font-size:48px;margin-bottom:16px">&#9203;</div>
+    <h2 id="loading-title">Waiting for Players</h2>
+    <p id="loading-sub" class="subtitle" style="margin-top:8px">Everyone needs to confirm their role...</p>
     <div class="gap2"></div>
+    <div id="loading-progress" style="display:none">
+      <div style="background:var(--card2);border-radius:10px;height:12px;overflow:hidden;margin:0 20px">
+        <div id="loading-bar-fill" style="height:100%;width:0%;background:linear-gradient(90deg,var(--gold),var(--gold2));border-radius:10px;transition:width .3s"></div>
+      </div>
+      <div class="gap"></div>
+    </div>
     <div class="waiting"><span class="dots"></span></div>
   </div>
   <div class="spacer"></div>
@@ -646,6 +652,79 @@ function generateImage(word, salt) {
   ctx.fillRect(0, 0, W, H);
 
   return _artCanvas.toDataURL('image/png');
+}
+
+// ======================== WIKIPEDIA IMAGE LOADING ========================
+// Words that need a specific Wikipedia article name
+const WIKI_OVERRIDE = {
+  'Bat':'Baseball_bat','Pipe':'Pipe_(plumbing)','Spa':'Day_spa',
+  'Lab':'Laboratory','Gym':'Gymnasium_(room)','Mall':'Shopping_mall',
+  'Docks':'Dock_(maritime)','Ice Pick':'Ice_pick','Frying Pan':'Frying_pan',
+  'Bolt Cutter':'Bolt_cutter','Flare Gun':'Flare_gun',
+  'Train Station':'Train_station','Parking Lot':'Parking_lot',
+  'Penthouse':'Penthouse_apartment','Candlestick':'Candlestick',
+};
+
+async function fetchWikiImage(word) {
+  const article = WIKI_OVERRIDE[word] || word;
+  try {
+    const resp = await fetch(`https://en.wikipedia.org/api/rest_v1/page/summary/${encodeURIComponent(article)}`);
+    if (!resp.ok) return null;
+    const data = await resp.json();
+    const thumbUrl = data.thumbnail?.source;
+    if (!thumbUrl) return null;
+    // Request larger thumbnail (replace size in URL)
+    const bigUrl = thumbUrl.replace(/\/\d+px-/, '/400px-');
+    return new Promise((resolve) => {
+      const img = new Image();
+      img.crossOrigin = 'anonymous';
+      const timeout = setTimeout(() => resolve(null), 10000);
+      img.onload = () => {
+        clearTimeout(timeout);
+        try {
+          const c = document.createElement('canvas');
+          c.width = 200; c.height = 200;
+          const ctx = c.getContext('2d');
+          // Center-crop to square
+          const scale = Math.max(200 / img.width, 200 / img.height);
+          const sw = 200 / scale, sh = 200 / scale;
+          const sx = (img.width - sw) / 2, sy = (img.height - sh) / 2;
+          ctx.drawImage(img, sx, sy, sw, sh, 0, 0, 200, 200);
+          // Dark cinematic tint
+          ctx.fillStyle = 'rgba(8,8,18,0.28)';
+          ctx.fillRect(0, 0, 200, 200);
+          // Vignette
+          const vg = ctx.createRadialGradient(100, 100, 40, 100, 100, 140);
+          vg.addColorStop(0, 'transparent');
+          vg.addColorStop(1, 'rgba(0,0,0,0.55)');
+          ctx.fillStyle = vg;
+          ctx.fillRect(0, 0, 200, 200);
+          resolve(c.toDataURL('image/jpeg', 0.72));
+        } catch (e) { resolve(null); }
+      };
+      img.onerror = () => { clearTimeout(timeout); resolve(null); };
+      img.src = bigUrl;
+    });
+  } catch (e) { return null; }
+}
+
+async function hostLoadAllImages(gridItems, salt, onProgress) {
+  let done = 0;
+  const promises = gridItems.map(async (item) => {
+    const dataUrl = await fetchWikiImage(item.word);
+    item.img = dataUrl || generateImage(item.word, salt);
+    done++;
+    if (onProgress) onProgress(done, gridItems.length);
+  });
+  // Race: all images loaded OR 15s total timeout
+  await Promise.race([
+    Promise.all(promises),
+    new Promise(r => setTimeout(r, 15000))
+  ]);
+  // Fill any still-missing with emoji fallback
+  gridItems.forEach(item => {
+    if (!item.img) item.img = generateImage(item.word, salt);
+  });
 }
 
 // ======================== STATE ========================
@@ -1000,14 +1079,10 @@ function handleClientReceive(data) {
       G.weaponHint = data.weaponHint || '';
       G.locationWord = data.locationWord || '';
       G.weaponWord = data.weaponWord || '';
-      G.locationGrid = data.locationGrid;
+      G.locationGrid = data.locationGrid;  // [{word, img}, ...] images pre-loaded by host
       G.weaponGrid = data.weaponGrid;
       G.players = data.players;
       G.phase = 'role_reveal';
-      // Generate images client-side from shared salt (instant, no network)
-      const salt = data.salt;
-      G.locationGrid.forEach(item => { item.img = generateImage(item.word, salt); });
-      G.weaponGrid.forEach(item => { item.img = generateImage(item.word, salt); });
       showRoleReveal();
       break;
     }
@@ -1104,8 +1179,9 @@ function shareRoom() {
 }
 
 // ======================== HOST: START GAME ========================
-function hostStartGame() {
+async function hostStartGame() {
   if (NET.players.length < 4) return;
+  document.getElementById('btn-start-game').disabled = true;
 
   HOST = {
     roles: {},
@@ -1130,7 +1206,7 @@ function hostStartGame() {
   for (let i = 2; i < 2 + dist.suspects; i++) HOST.roles[shuffled[i]] = 'Suspect';
   for (let i = 2 + dist.suspects; i < shuffled.length; i++) HOST.roles[shuffled[i]] = 'Detective';
 
-  // Generate grids (images are generated client-side from shared salt)
+  // Generate grids
   HOST.salt = Math.random().toString(36).slice(2, 10);
   const locShuffle = shuffle(LOCATIONS);
   HOST.correctLocation = locShuffle[0];
@@ -1139,6 +1215,24 @@ function hostStartGame() {
   const weapShuffle = shuffle(WEAPONS);
   HOST.correctWeapon = weapShuffle[0];
   HOST.weaponGrid = shuffle(weapShuffle.slice(0, 9)).map(w => ({ word: w }));
+
+  // Show loading screen on host while images load
+  document.getElementById('loading-icon').textContent = '\u{1F4F7}';
+  document.getElementById('loading-title').textContent = 'Loading Crime Scene';
+  document.getElementById('loading-sub').textContent = 'Fetching images for the investigation...';
+  document.getElementById('loading-progress').style.display = 'block';
+  showScreen('s-loading');
+
+  // Load real images from Wikipedia (emoji fallback if unavailable)
+  let totalLoaded = 0;
+  const updateBar = (done, total) => {
+    totalLoaded++;
+    const pct = Math.round((totalLoaded / 18) * 100);
+    const bar = document.getElementById('loading-bar-fill');
+    if (bar) bar.style.width = pct + '%';
+  };
+  await hostLoadAllImages(HOST.locationGrid, HOST.salt, updateBar);
+  await hostLoadAllImages(HOST.weaponGrid, HOST.salt, updateBar);
 
   // Generate hints for detectives
   names.forEach(name => {
@@ -1150,7 +1244,7 @@ function hostStartGame() {
     }
   });
 
-  // Send private role data to each player
+  // Send private role data to each player (images included as data URLs)
   NET.players.forEach(p => {
     const role = HOST.roles[p.name];
     const msg = {
@@ -1158,7 +1252,6 @@ function hostStartGame() {
       role,
       locationGrid: HOST.locationGrid,
       weaponGrid: HOST.weaponGrid,
-      salt: HOST.salt,
       players: names,
       locationHint: '',
       weaponHint: '',
@@ -1264,6 +1357,10 @@ function flipRole() {
 
 function confirmReady() {
   document.getElementById('btn-ready').style.display = 'none';
+  document.getElementById('loading-icon').textContent = '\u23F3';
+  document.getElementById('loading-title').textContent = 'Waiting for Players';
+  document.getElementById('loading-sub').textContent = 'Everyone needs to confirm their role...';
+  document.getElementById('loading-progress').style.display = 'none';
   showScreen('s-loading');
   sendToHost({ type: 'ready', name: NET.myName });
 }
@@ -1344,7 +1441,6 @@ function renderGridCell(item, interactive, onclick) {
   const click = onclick ? ` onclick="${onclick}"` : '';
   return `<div class="${cls}"${click} data-word="${esc(item.word)}">
     <img src="${esc(item.img)}" alt="" loading="eager">
-    <div class="cell-label">${esc(item.word)}</div>
   </div>`;
 }
 
