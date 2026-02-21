@@ -529,7 +529,53 @@ function getHint(word) {
   return hints[Math.floor(Math.random() * hints.length)];
 }
 
-// ======================== PROCEDURAL ART GENERATION ========================
+// ======================== CARD ART GENERATION ========================
+// Each word maps to [emoji, darkBg, accentColor] for themed card art
+const CARD_ART = {
+  // ---- Locations ----
+  'Rooftop':['🏙️','#1a1a3e','#e05050'],'Casino':['🎰','#2a0a0a','#ffd700'],
+  'Kitchen':['🍳','#3a2010','#f0a030'],'Subway':['🚇','#1a1a2a','#4488cc'],
+  'Library':['📚','#2a1a10','#c8a050'],'Hospital':['🏥','#0a1a2a','#40a0d0'],
+  'Beach':['🏖️','#0a2030','#f0c040'],'Airport':['✈️','#1a2030','#6090c0'],
+  'Museum':['🏛️','#2a2010','#d0b060'],'Warehouse':['📦','#1a1510','#8a7050'],
+  'Mansion':['🏰','#1a1030','#b060d0'],'Garage':['🔧','#1a1a1a','#808080'],
+  'School':['🏫','#1a1020','#d04040'],'Theater':['🎭','#2a0a10','#e06030'],
+  'Docks':['⚓','#0a1520','#4080a0'],'Prison':['⛓️','#1a1a1a','#a0a0a0'],
+  'Church':['⛪','#1a1030','#c0a0e0'],'Penthouse':['🌃','#0a0a2a','#f0d060'],
+  'Forest':['🌲','#0a200a','#40a040'],'Market':['🛒','#1a200a','#e0a020'],
+  'Lab':['🧪','#0a1a20','#40d080'],'Courtroom':['⚖️','#1a1510','#c0a040'],
+  'Hotel':['🏨','#1a1530','#5080d0'],'Stadium':['🏟️','#0a1a0a','#40b060'],
+  'Cemetery':['⚰️','#0a0a10','#6060a0'],'Lighthouse':['🗼','#0a1530','#f0e060'],
+  'Bunker':['🪖','#0a100a','#607050'],'Yacht':['⛵','#0a1020','#40a0e0'],
+  'Train Station':['🚂','#1a1510','#c04030'],'Nightclub':['🪩','#1a0a20','#d040e0'],
+  'Office':['💼','#101520','#4070a0'],'Parking Lot':['🅿️','#101010','#5070a0'],
+  'Bank':['🏦','#0a1a10','#40a060'],'Restaurant':['🍽️','#2a100a','#e06040'],
+  'Gym':['🏋️','#1a150a','#e08020'],'Farm':['🌾','#101a0a','#80a030'],
+  'Aquarium':['🐠','#0a1520','#30b0c0'],'Observatory':['🔭','#0a0a20','#6060d0'],
+  'Mall':['🛍️','#200a1a','#e060a0'],'Spa':['🧖','#0a1a1a','#60c0b0'],
+  // ---- Weapons ----
+  'Knife':['🔪','#1a1a1a','#a0a0c0'],'Poison':['☠️','#0a1a0a','#60d060'],
+  'Gun':['🔫','#1a1a20','#6070a0'],'Rope':['🪢','#1a150a','#a08040'],
+  'Wrench':['🔧','#101520','#8090a0'],'Candlestick':['🕯️','#1a1510','#f0d040'],
+  'Axe':['🪓','#1a100a','#a06030'],'Crowbar':['🪝','#1a1a1a','#7080a0'],
+  'Scissors':['✂️','#1a1a1a','#c04040'],'Hammer':['🔨','#1a150a','#a07030'],
+  'Syringe':['💉','#101520','#d04050'],'Brick':['🧱','#1a0a0a','#c06030'],
+  'Pipe':['🪈','#1a1a1a','#7080a0'],'Crossbow':['🏹','#1a150a','#806030'],
+  'Chainsaw':['⛓️‍💥','#1a1510','#e08020'],'Shovel':['⛏️','#1a150a','#907040'],
+  'Ice Pick':['🧊','#0a1520','#80c0e0'],'Bat':['🏏','#1a150a','#a08040'],
+  'Dagger':['🗡️','#0a0a1a','#a0a0c0'],'Grenade':['💣','#0a0a0a','#607050'],
+  'Taser':['⚡','#0a0a1a','#f0e040'],'Machete':['⚔️','#0a1a0a','#70a060'],
+  'Mallet':['🪵','#1a150a','#b09050'],'Scalpel':['🩻','#0a1020','#80b0d0'],
+  'Drill':['🔩','#1a1a0a','#e0c020'],'Trophy':['🏆','#1a150a','#f0c020'],
+  'Frying Pan':['🍳','#1a1a1a','#707070'],'Whip':['🦯','#1a100a','#905030'],
+  'Pitchfork':['🔱','#1a0a0a','#c03030'],'Hatchet':['🪓','#1a1510','#906040'],
+  'Spear':['🎯','#1a150a','#907040'],'Saw':['🪚','#1a1a1a','#a09070'],
+  'Torch':['🔥','#1a0a0a','#f08020'],'Bolt Cutter':['✂️','#1a1a20','#707080'],
+  'Chain':['⛓️','#101015','#909090'],'Stiletto':['🗡️','#101020','#b0a0d0'],
+  'Blowdart':['💨','#0a1a0a','#60a050'],'Garrote':['🪡','#1a1a1a','#808090'],
+  'Flare Gun':['🎆','#1a0a10','#f04060'],'Sledgehammer':['⚒️','#1a1a1a','#808080'],
+};
+
 // Seeded PRNG (mulberry32)
 function mulberry32(a) {
   return function() {
@@ -552,96 +598,54 @@ function generateImage(word, salt) {
   const W = 200, H = 200;
   const ctx = _artCanvas.getContext('2d');
   const rng = mulberry32(hashStr(word + ':' + salt));
+  const art = CARD_ART[word] || ['❓','#1a1a1a','#808080'];
+  const [emoji, bgDark, bgAccent] = art;
 
-  // Color palette
-  const baseHue = rng() * 360;
-  const hueStep = 25 + rng() * 70;
-  const sat = 40 + rng() * 35;
-  const pal = [];
-  for (let i = 0; i < 5; i++) {
-    pal.push(`hsl(${(baseHue + hueStep * i) % 360}, ${sat + (rng()-0.5)*20}%, ${15 + i*10 + rng()*10}%)`);
-  }
-
-  // Background gradient
-  const gAngle = rng() * Math.PI * 2;
-  const gx = W/2 + Math.cos(gAngle) * W/2;
-  const gy = H/2 + Math.sin(gAngle) * H/2;
-  const g = ctx.createLinearGradient(W/2 - Math.cos(gAngle)*W/2, H/2 - Math.sin(gAngle)*H/2, gx, gy);
-  g.addColorStop(0, pal[0]); g.addColorStop(0.5, pal[1]); g.addColorStop(1, pal[0]);
+  // Clear
   ctx.globalAlpha = 1;
-  ctx.fillStyle = g;
+  ctx.clearRect(0, 0, W, H);
+
+  // Moody radial background
+  const cx = W/2 + (rng()-0.5)*50, cy = H/2 + (rng()-0.5)*50;
+  const bg = ctx.createRadialGradient(cx, cy, 15, W/2, H/2, W*0.85);
+  bg.addColorStop(0, bgAccent);
+  bg.addColorStop(0.55, bgDark);
+  bg.addColorStop(1, '#050508');
+  ctx.fillStyle = bg;
   ctx.fillRect(0, 0, W, H);
 
-  // Draw layered shapes
-  const layers = [
-    { count: 3 + Math.floor(rng()*3), alpha: [0.12, 0.25], size: [40, 80], colors: [1,2,3] },
-    { count: 4 + Math.floor(rng()*5), alpha: [0.18, 0.40], size: [15, 50], colors: [2,3,4] },
-    { count: 5 + Math.floor(rng()*8), alpha: [0.25, 0.50], size: [3, 22],  colors: [3,4] },
-  ];
-  layers.forEach(layer => {
-    for (let i = 0; i < layer.count; i++) {
-      ctx.globalAlpha = layer.alpha[0] + rng() * (layer.alpha[1] - layer.alpha[0]);
-      ctx.fillStyle = pal[layer.colors[Math.floor(rng() * layer.colors.length)]];
-      _drawShape(ctx, rng, W, H, layer.size[0] + rng() * (layer.size[1] - layer.size[0]));
-    }
-  });
-
-  // Curves
-  for (let i = 0; i < 2 + Math.floor(rng()*4); i++) {
-    ctx.globalAlpha = 0.12 + rng() * 0.28;
-    ctx.strokeStyle = pal[Math.floor(rng() * pal.length)];
-    ctx.lineWidth = 1 + rng() * 5;
+  // Atmospheric particles (bokeh-like dots)
+  for (let i = 0; i < 12 + Math.floor(rng()*18); i++) {
+    ctx.globalAlpha = 0.04 + rng()*0.12;
+    ctx.fillStyle = bgAccent;
     ctx.beginPath();
-    ctx.moveTo(rng()*W, rng()*H);
-    for (let j = 0; j < 2 + Math.floor(rng()*3); j++) {
-      ctx.quadraticCurveTo(rng()*W, rng()*H, rng()*W, rng()*H);
-    }
-    ctx.stroke();
+    ctx.arc(rng()*W, rng()*H, 2 + rng()*18, 0, Math.PI*2);
+    ctx.fill();
   }
 
-  // Vignette
+  // Soft glow behind emoji
+  ctx.globalAlpha = 0.3;
+  const glow = ctx.createRadialGradient(W/2, H/2-8, 8, W/2, H/2-8, 55);
+  glow.addColorStop(0, bgAccent);
+  glow.addColorStop(1, 'transparent');
+  ctx.fillStyle = glow;
+  ctx.fillRect(0, 0, W, H);
+
+  // Draw the emoji centered
   ctx.globalAlpha = 1;
-  const vg = ctx.createRadialGradient(W/2, H/2, W*0.25, W/2, H/2, W*0.75);
+  ctx.font = '80px "Segoe UI Emoji","Apple Color Emoji","Noto Color Emoji",sans-serif';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText(emoji, W/2, H/2 - 2);
+
+  // Vignette overlay
+  const vg = ctx.createRadialGradient(W/2, H/2, W*0.28, W/2, H/2, W*0.72);
   vg.addColorStop(0, 'transparent');
-  vg.addColorStop(1, 'rgba(0,0,0,0.35)');
+  vg.addColorStop(1, 'rgba(0,0,0,0.45)');
   ctx.fillStyle = vg;
   ctx.fillRect(0, 0, W, H);
 
-  return _artCanvas.toDataURL('image/jpeg', 0.85);
-}
-
-function _drawShape(ctx, rng, W, H, size) {
-  const x = rng()*W, y = rng()*H;
-  const type = Math.floor(rng()*5);
-  ctx.beginPath();
-  if (type === 0) {
-    ctx.arc(x, y, size, 0, Math.PI*2);
-    ctx.fill();
-  } else if (type === 1) {
-    ctx.fillRect(x - size/2, y - size/2, size*(0.8+rng()*1.5), size*(0.8+rng()*1.5));
-  } else if (type === 2) {
-    const a = rng()*Math.PI*2;
-    for (let i = 0; i < 3; i++) {
-      const ang = a + i*Math.PI*2/3;
-      const px = x + Math.cos(ang)*size, py = y + Math.sin(ang)*size;
-      i === 0 ? ctx.moveTo(px,py) : ctx.lineTo(px,py);
-    }
-    ctx.closePath(); ctx.fill();
-  } else if (type === 3) {
-    ctx.moveTo(x, y-size); ctx.lineTo(x+size*0.6, y);
-    ctx.lineTo(x, y+size); ctx.lineTo(x-size*0.6, y);
-    ctx.closePath(); ctx.fill();
-  } else {
-    const pts = 5 + Math.floor(rng()*4);
-    for (let i = 0; i < pts; i++) {
-      const ang = (i/pts)*Math.PI*2;
-      const r = size*(0.5+rng()*0.5);
-      const px = x + Math.cos(ang)*r, py = y + Math.sin(ang)*r;
-      if (i === 0) ctx.moveTo(px,py);
-      else { ctx.quadraticCurveTo(x+Math.cos(ang-0.3)*r*1.2, y+Math.sin(ang-0.3)*r*1.2, px, py); }
-    }
-    ctx.closePath(); ctx.fill();
-  }
+  return _artCanvas.toDataURL('image/png');
 }
 
 // ======================== STATE ========================
