@@ -320,19 +320,15 @@ input::placeholder{color:var(--text3)}
   <div class="spacer"></div>
 </div>
 
-<!-- ===== SCREEN: LOADING IMAGES ===== -->
+<!-- ===== SCREEN: WAITING FOR PLAYERS ===== -->
 <div class="screen" id="s-loading">
   <div class="spacer"></div>
   <div style="text-align:center">
-    <div style="font-size:48px;margin-bottom:16px">&#127912;</div>
-    <h2>Preparing the Crime Scene</h2>
-    <p class="subtitle" style="margin-top:8px">AI is generating unique images for this game...</p>
+    <div style="font-size:48px;margin-bottom:16px">&#9203;</div>
+    <h2>Waiting for Players</h2>
+    <p class="subtitle" style="margin-top:8px">Everyone needs to confirm their role...</p>
     <div class="gap2"></div>
-    <div style="background:var(--card2);border-radius:10px;height:12px;overflow:hidden;margin:0 20px">
-      <div id="loading-bar-fill" style="height:100%;width:0%;background:linear-gradient(90deg,var(--gold),var(--gold2));border-radius:10px;transition:width .3s"></div>
-    </div>
-    <div class="gap"></div>
-    <p id="loading-text" style="font-size:13px;color:var(--text3)">Generating images... 0/18</p>
+    <div class="waiting"><span class="dots"></span></div>
   </div>
   <div class="spacer"></div>
 </div>
@@ -533,39 +529,119 @@ function getHint(word) {
   return hints[Math.floor(Math.random() * hints.length)];
 }
 
-// ======================== IMAGE GENERATION ========================
-const IMG_STYLES = {
-  location: 'dark moody cinematic photograph, mystery crime scene aesthetic, dramatic lighting, no text, no words, no letters',
-  weapon: 'dark moody close-up photograph, dramatic noir lighting, mystery aesthetic, isolated object, no text, no words, no letters'
-};
-
-function generateImageUrl(word, type) {
-  const seed = Math.floor(Math.random() * 999999);
-  const style = IMG_STYLES[type] || IMG_STYLES.location;
-  const prompt = encodeURIComponent(`${word}, ${style}`);
-  return `https://image.pollinations.ai/prompt/${prompt}?width=256&height=256&seed=${seed}&nologo=true`;
+// ======================== PROCEDURAL ART GENERATION ========================
+// Seeded PRNG (mulberry32)
+function mulberry32(a) {
+  return function() {
+    a |= 0; a = a + 0x6D2B79F5 | 0;
+    var t = Math.imul(a ^ a >>> 15, 1 | a);
+    t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t;
+    return ((t ^ t >>> 14) >>> 0) / 4294967296;
+  };
+}
+function hashStr(s) {
+  let h = 5381;
+  for (let i = 0; i < s.length; i++) h = ((h << 5) + h + s.charCodeAt(i)) | 0;
+  return h >>> 0;
 }
 
-function preloadImages(urls) {
-  let loaded = 0;
-  return new Promise((resolve) => {
-    if (urls.length === 0) { resolve(); return; }
-    urls.forEach(url => {
-      const img = new Image();
-      img.onload = img.onerror = () => {
-        loaded++;
-        const pct = Math.round((loaded / urls.length) * 100);
-        const bar = document.getElementById('loading-bar-fill');
-        const txt = document.getElementById('loading-text');
-        if (bar) bar.style.width = pct + '%';
-        if (txt) txt.textContent = `Generating images... ${loaded}/${urls.length}`;
-        if (loaded >= urls.length) resolve();
-      };
-      img.src = url;
-    });
-    // Safety timeout: proceed after 30s even if some images fail
-    setTimeout(resolve, 30000);
+const _artCanvas = document.createElement('canvas');
+_artCanvas.width = 200; _artCanvas.height = 200;
+
+function generateImage(word, salt) {
+  const W = 200, H = 200;
+  const ctx = _artCanvas.getContext('2d');
+  const rng = mulberry32(hashStr(word + ':' + salt));
+
+  // Color palette
+  const baseHue = rng() * 360;
+  const hueStep = 25 + rng() * 70;
+  const sat = 40 + rng() * 35;
+  const pal = [];
+  for (let i = 0; i < 5; i++) {
+    pal.push(`hsl(${(baseHue + hueStep * i) % 360}, ${sat + (rng()-0.5)*20}%, ${15 + i*10 + rng()*10}%)`);
+  }
+
+  // Background gradient
+  const gAngle = rng() * Math.PI * 2;
+  const gx = W/2 + Math.cos(gAngle) * W/2;
+  const gy = H/2 + Math.sin(gAngle) * H/2;
+  const g = ctx.createLinearGradient(W/2 - Math.cos(gAngle)*W/2, H/2 - Math.sin(gAngle)*H/2, gx, gy);
+  g.addColorStop(0, pal[0]); g.addColorStop(0.5, pal[1]); g.addColorStop(1, pal[0]);
+  ctx.globalAlpha = 1;
+  ctx.fillStyle = g;
+  ctx.fillRect(0, 0, W, H);
+
+  // Draw layered shapes
+  const layers = [
+    { count: 3 + Math.floor(rng()*3), alpha: [0.12, 0.25], size: [40, 80], colors: [1,2,3] },
+    { count: 4 + Math.floor(rng()*5), alpha: [0.18, 0.40], size: [15, 50], colors: [2,3,4] },
+    { count: 5 + Math.floor(rng()*8), alpha: [0.25, 0.50], size: [3, 22],  colors: [3,4] },
+  ];
+  layers.forEach(layer => {
+    for (let i = 0; i < layer.count; i++) {
+      ctx.globalAlpha = layer.alpha[0] + rng() * (layer.alpha[1] - layer.alpha[0]);
+      ctx.fillStyle = pal[layer.colors[Math.floor(rng() * layer.colors.length)]];
+      _drawShape(ctx, rng, W, H, layer.size[0] + rng() * (layer.size[1] - layer.size[0]));
+    }
   });
+
+  // Curves
+  for (let i = 0; i < 2 + Math.floor(rng()*4); i++) {
+    ctx.globalAlpha = 0.12 + rng() * 0.28;
+    ctx.strokeStyle = pal[Math.floor(rng() * pal.length)];
+    ctx.lineWidth = 1 + rng() * 5;
+    ctx.beginPath();
+    ctx.moveTo(rng()*W, rng()*H);
+    for (let j = 0; j < 2 + Math.floor(rng()*3); j++) {
+      ctx.quadraticCurveTo(rng()*W, rng()*H, rng()*W, rng()*H);
+    }
+    ctx.stroke();
+  }
+
+  // Vignette
+  ctx.globalAlpha = 1;
+  const vg = ctx.createRadialGradient(W/2, H/2, W*0.25, W/2, H/2, W*0.75);
+  vg.addColorStop(0, 'transparent');
+  vg.addColorStop(1, 'rgba(0,0,0,0.35)');
+  ctx.fillStyle = vg;
+  ctx.fillRect(0, 0, W, H);
+
+  return _artCanvas.toDataURL('image/jpeg', 0.85);
+}
+
+function _drawShape(ctx, rng, W, H, size) {
+  const x = rng()*W, y = rng()*H;
+  const type = Math.floor(rng()*5);
+  ctx.beginPath();
+  if (type === 0) {
+    ctx.arc(x, y, size, 0, Math.PI*2);
+    ctx.fill();
+  } else if (type === 1) {
+    ctx.fillRect(x - size/2, y - size/2, size*(0.8+rng()*1.5), size*(0.8+rng()*1.5));
+  } else if (type === 2) {
+    const a = rng()*Math.PI*2;
+    for (let i = 0; i < 3; i++) {
+      const ang = a + i*Math.PI*2/3;
+      const px = x + Math.cos(ang)*size, py = y + Math.sin(ang)*size;
+      i === 0 ? ctx.moveTo(px,py) : ctx.lineTo(px,py);
+    }
+    ctx.closePath(); ctx.fill();
+  } else if (type === 3) {
+    ctx.moveTo(x, y-size); ctx.lineTo(x+size*0.6, y);
+    ctx.lineTo(x, y+size); ctx.lineTo(x-size*0.6, y);
+    ctx.closePath(); ctx.fill();
+  } else {
+    const pts = 5 + Math.floor(rng()*4);
+    for (let i = 0; i < pts; i++) {
+      const ang = (i/pts)*Math.PI*2;
+      const r = size*(0.5+rng()*0.5);
+      const px = x + Math.cos(ang)*r, py = y + Math.sin(ang)*r;
+      if (i === 0) ctx.moveTo(px,py);
+      else { ctx.quadraticCurveTo(x+Math.cos(ang-0.3)*r*1.2, y+Math.sin(ang-0.3)*r*1.2, px, py); }
+    }
+    ctx.closePath(); ctx.fill();
+  }
 }
 
 // ======================== STATE ========================
@@ -920,13 +996,14 @@ function handleClientReceive(data) {
       G.weaponHint = data.weaponHint || '';
       G.locationWord = data.locationWord || '';
       G.weaponWord = data.weaponWord || '';
-      G.locationGrid = data.locationGrid;  // [{word, img}, ...]
+      G.locationGrid = data.locationGrid;
       G.weaponGrid = data.weaponGrid;
       G.players = data.players;
       G.phase = 'role_reveal';
-      // Start preloading images in background
-      const allImgUrls = [...G.locationGrid, ...G.weaponGrid].map(item => item.img);
-      G._imagesReady = preloadImages(allImgUrls);
+      // Generate images client-side from shared salt (instant, no network)
+      const salt = data.salt;
+      G.locationGrid.forEach(item => { item.img = generateImage(item.word, salt); });
+      G.weaponGrid.forEach(item => { item.img = generateImage(item.word, salt); });
       showRoleReveal();
       break;
     }
@@ -1049,18 +1126,15 @@ function hostStartGame() {
   for (let i = 2; i < 2 + dist.suspects; i++) HOST.roles[shuffled[i]] = 'Suspect';
   for (let i = 2 + dist.suspects; i < shuffled.length; i++) HOST.roles[shuffled[i]] = 'Detective';
 
-  // Generate grids with image URLs
+  // Generate grids (images are generated client-side from shared salt)
+  HOST.salt = Math.random().toString(36).slice(2, 10);
   const locShuffle = shuffle(LOCATIONS);
   HOST.correctLocation = locShuffle[0];
-  HOST.locationGrid = shuffle(locShuffle.slice(0, 9)).map(w => ({
-    word: w, img: generateImageUrl(w, 'location')
-  }));
+  HOST.locationGrid = shuffle(locShuffle.slice(0, 9)).map(w => ({ word: w }));
 
   const weapShuffle = shuffle(WEAPONS);
   HOST.correctWeapon = weapShuffle[0];
-  HOST.weaponGrid = shuffle(weapShuffle.slice(0, 9)).map(w => ({
-    word: w, img: generateImageUrl(w, 'weapon')
-  }));
+  HOST.weaponGrid = shuffle(weapShuffle.slice(0, 9)).map(w => ({ word: w }));
 
   // Generate hints for detectives
   names.forEach(name => {
@@ -1080,6 +1154,7 @@ function hostStartGame() {
       role,
       locationGrid: HOST.locationGrid,
       weaponGrid: HOST.weaponGrid,
+      salt: HOST.salt,
       players: names,
       locationHint: '',
       weaponHint: '',
@@ -1183,13 +1258,10 @@ function flipRole() {
   back.style.background = 'linear-gradient(135deg, var(--card), var(--card2))';
 }
 
-async function confirmReady() {
+function confirmReady() {
   document.getElementById('btn-ready').style.display = 'none';
   showScreen('s-loading');
-  // Wait for images to finish loading
-  if (G._imagesReady) await G._imagesReady;
   sendToHost({ type: 'ready', name: NET.myName });
-  document.getElementById('loading-text').textContent = 'Waiting for other players...';
 }
 
 // ======================== PHASE RENDERING ========================
