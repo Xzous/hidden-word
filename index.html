@@ -60,14 +60,18 @@ input::placeholder{color:var(--text3)}
 
 /* ===== WORD GRID ===== */
 .word-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin:12px 0}
-.word-cell{padding:14px 8px;border-radius:10px;background:var(--card2);border:2px solid transparent;
+.word-cell{padding:0;border-radius:10px;background:var(--card2);border:2px solid transparent;
   text-align:center;font-size:15px;font-weight:600;cursor:default;transition:all .2s;
-  min-height:50px;display:flex;align-items:center;justify-content:center;user-select:none}
+  min-height:50px;display:flex;flex-direction:column;align-items:center;justify-content:center;user-select:none;
+  overflow:hidden;position:relative}
 .word-cell.interactive{cursor:pointer}
 .word-cell.interactive:active{transform:scale(0.96)}
-.word-cell.selected{border-color:var(--gold);background:rgba(212,168,67,0.15);color:var(--gold);box-shadow:0 0 12px rgba(212,168,67,0.2)}
-.word-cell.correct{border-color:var(--green);background:rgba(76,175,80,0.15);color:var(--green)}
-.word-cell.wrong{border-color:var(--red);background:rgba(229,57,53,0.15);color:var(--red)}
+.word-cell.selected{border-color:var(--gold);box-shadow:0 0 12px rgba(212,168,67,0.3)}
+.word-cell.correct{border-color:var(--green);box-shadow:0 0 12px rgba(76,175,80,0.3)}
+.word-cell.wrong{border-color:var(--red);box-shadow:0 0 12px rgba(229,57,53,0.3)}
+.word-cell img{width:100%;height:100%;object-fit:cover;display:block;border-radius:8px}
+.word-cell .cell-label{position:absolute;bottom:0;left:0;right:0;padding:4px;font-size:11px;font-weight:700;
+  background:rgba(15,15,26,0.8);color:var(--text);text-transform:uppercase;letter-spacing:0.5px}
 
 /* ===== TIMER ===== */
 .timer-wrap{display:flex;flex-direction:column;align-items:center;margin:16px 0}
@@ -316,6 +320,23 @@ input::placeholder{color:var(--text3)}
   <div class="spacer"></div>
 </div>
 
+<!-- ===== SCREEN: LOADING IMAGES ===== -->
+<div class="screen" id="s-loading">
+  <div class="spacer"></div>
+  <div style="text-align:center">
+    <div style="font-size:48px;margin-bottom:16px">&#127912;</div>
+    <h2>Preparing the Crime Scene</h2>
+    <p class="subtitle" style="margin-top:8px">AI is generating unique images for this game...</p>
+    <div class="gap2"></div>
+    <div style="background:var(--card2);border-radius:10px;height:12px;overflow:hidden;margin:0 20px">
+      <div id="loading-bar-fill" style="height:100%;width:0%;background:linear-gradient(90deg,var(--gold),var(--gold2));border-radius:10px;transition:width .3s"></div>
+    </div>
+    <div class="gap"></div>
+    <p id="loading-text" style="font-size:13px;color:var(--text3)">Generating images... 0/18</p>
+  </div>
+  <div class="spacer"></div>
+</div>
+
 <!-- ===== SCREEN: GAME (prep + discussion) ===== -->
 <div class="screen" id="s-game">
   <div class="gap"></div>
@@ -510,6 +531,41 @@ function getHint(word) {
   const hints = HINTS[word];
   if (!hints) return 'mysterious';
   return hints[Math.floor(Math.random() * hints.length)];
+}
+
+// ======================== IMAGE GENERATION ========================
+const IMG_STYLES = {
+  location: 'dark moody cinematic photograph, mystery crime scene aesthetic, dramatic lighting, no text, no words, no letters',
+  weapon: 'dark moody close-up photograph, dramatic noir lighting, mystery aesthetic, isolated object, no text, no words, no letters'
+};
+
+function generateImageUrl(word, type) {
+  const seed = Math.floor(Math.random() * 999999);
+  const style = IMG_STYLES[type] || IMG_STYLES.location;
+  const prompt = encodeURIComponent(`${word}, ${style}`);
+  return `https://image.pollinations.ai/prompt/${prompt}?width=256&height=256&seed=${seed}&nologo=true`;
+}
+
+function preloadImages(urls) {
+  let loaded = 0;
+  return new Promise((resolve) => {
+    if (urls.length === 0) { resolve(); return; }
+    urls.forEach(url => {
+      const img = new Image();
+      img.onload = img.onerror = () => {
+        loaded++;
+        const pct = Math.round((loaded / urls.length) * 100);
+        const bar = document.getElementById('loading-bar-fill');
+        const txt = document.getElementById('loading-text');
+        if (bar) bar.style.width = pct + '%';
+        if (txt) txt.textContent = `Generating images... ${loaded}/${urls.length}`;
+        if (loaded >= urls.length) resolve();
+      };
+      img.src = url;
+    });
+    // Safety timeout: proceed after 30s even if some images fail
+    setTimeout(resolve, 30000);
+  });
 }
 
 // ======================== STATE ========================
@@ -864,10 +920,13 @@ function handleClientReceive(data) {
       G.weaponHint = data.weaponHint || '';
       G.locationWord = data.locationWord || '';
       G.weaponWord = data.weaponWord || '';
-      G.locationGrid = data.locationGrid;
+      G.locationGrid = data.locationGrid;  // [{word, img}, ...]
       G.weaponGrid = data.weaponGrid;
       G.players = data.players;
       G.phase = 'role_reveal';
+      // Start preloading images in background
+      const allImgUrls = [...G.locationGrid, ...G.weaponGrid].map(item => item.img);
+      G._imagesReady = preloadImages(allImgUrls);
       showRoleReveal();
       break;
     }
@@ -990,14 +1049,18 @@ function hostStartGame() {
   for (let i = 2; i < 2 + dist.suspects; i++) HOST.roles[shuffled[i]] = 'Suspect';
   for (let i = 2 + dist.suspects; i < shuffled.length; i++) HOST.roles[shuffled[i]] = 'Detective';
 
-  // Generate grids
+  // Generate grids with image URLs
   const locShuffle = shuffle(LOCATIONS);
   HOST.correctLocation = locShuffle[0];
-  HOST.locationGrid = shuffle(locShuffle.slice(0, 9));
+  HOST.locationGrid = shuffle(locShuffle.slice(0, 9)).map(w => ({
+    word: w, img: generateImageUrl(w, 'location')
+  }));
 
   const weapShuffle = shuffle(WEAPONS);
   HOST.correctWeapon = weapShuffle[0];
-  HOST.weaponGrid = shuffle(weapShuffle.slice(0, 9));
+  HOST.weaponGrid = shuffle(weapShuffle.slice(0, 9)).map(w => ({
+    word: w, img: generateImageUrl(w, 'weapon')
+  }));
 
   // Generate hints for detectives
   names.forEach(name => {
@@ -1120,10 +1183,13 @@ function flipRole() {
   back.style.background = 'linear-gradient(135deg, var(--card), var(--card2))';
 }
 
-function confirmReady() {
+async function confirmReady() {
   document.getElementById('btn-ready').style.display = 'none';
-  document.getElementById('ready-wait').style.display = 'block';
+  showScreen('s-loading');
+  // Wait for images to finish loading
+  if (G._imagesReady) await G._imagesReady;
   sendToHost({ type: 'ready', name: NET.myName });
+  document.getElementById('loading-text').textContent = 'Waiting for other players...';
 }
 
 // ======================== PHASE RENDERING ========================
@@ -1162,9 +1228,9 @@ function renderGameScreen(mode, stage) {
   const roleInfoEl = document.getElementById('game-role-info');
   roleInfoEl.innerHTML = getRoleInfoHTML(stage);
 
-  // Grid
+  // Grid (images)
   const gridEl = document.getElementById('game-grid');
-  gridEl.innerHTML = grid.map(w => `<div class="word-cell">${esc(w)}</div>`).join('');
+  gridEl.innerHTML = grid.map(item => renderGridCell(item, false)).join('');
 
   // Timer
   document.getElementById('game-timer-label').textContent = mode === 'prep' ? 'PREPARATION' : 'DISCUSSION';
@@ -1195,6 +1261,15 @@ function getRoleInfoHTML(stage) {
   } else {
     return '<div class="role-info suspect">&#128308; You are a Suspect &mdash; Blend in and mislead!</div>';
   }
+}
+
+function renderGridCell(item, interactive, onclick) {
+  const cls = interactive ? 'word-cell interactive' : 'word-cell';
+  const click = onclick ? ` onclick="${onclick}"` : '';
+  return `<div class="${cls}"${click} data-word="${esc(item.word)}">
+    <img src="${esc(item.img)}" alt="" loading="eager">
+    <div class="cell-label">${esc(item.word)}</div>
+  </div>`;
 }
 
 function endDiscussionEarly() {
@@ -1294,11 +1369,11 @@ function renderJudgeScreen(stage) {
     gridEl.style.display = 'grid';
     const grid = isLoc ? G.locationGrid : G.weaponGrid;
     if (isJudge) {
-      gridEl.innerHTML = grid.map(w =>
-        `<div class="word-cell interactive" onclick="selectJudgePick(this,'${esc(w)}')">${esc(w)}</div>`
+      gridEl.innerHTML = grid.map(item =>
+        renderGridCell(item, true, `selectJudgePick(this,'${esc(item.word)}')`)
       ).join('');
     } else {
-      gridEl.innerHTML = grid.map(w => `<div class="word-cell">${esc(w)}</div>`).join('');
+      gridEl.innerHTML = grid.map(item => renderGridCell(item, false)).join('');
     }
   }
 
@@ -1324,9 +1399,11 @@ function renderJudgeScreen(stage) {
 }
 
 function selectJudgePick(el, value) {
-  // Deselect all
-  el.parentElement.querySelectorAll('.selected').forEach(c => c.classList.remove('selected'));
-  el.classList.add('selected');
+  // Handle clicks on child elements (img, label)
+  const cell = el.closest ? el.closest('.word-cell, .player-chip') || el : el;
+  const container = cell.closest('.word-grid, .player-list') || cell.parentElement;
+  container.querySelectorAll('.selected').forEach(c => c.classList.remove('selected'));
+  cell.classList.add('selected');
   G.judgeSelection = value;
   document.getElementById('btn-judge-confirm').disabled = false;
 }
@@ -1345,6 +1422,11 @@ function showStageResult(data) {
   const cls = data.correct ? 'correct' : 'wrong';
   const msg = data.correct ? 'Correct!' : 'Wrong!';
 
+  // Find images for guessed and actual words
+  const grid = isLoc ? G.locationGrid : G.weaponGrid;
+  const guessedItem = grid.find(item => item.word === data.guessed);
+  const actualItem = grid.find(item => item.word === data.actual);
+
   const content = document.getElementById('result-content');
   content.innerHTML = `
     <div class="stage-badge ${isLoc ? 'loc' : 'weap'}">${isLoc ? '&#128205;' : '&#128298;'} ${isLoc ? 'Location' : 'Weapon'}</div>
@@ -1352,6 +1434,7 @@ function showStageResult(data) {
     <div style="font-size:56px">${icon}</div>
     <div class="gap"></div>
     <div class="result-banner ${cls}">${msg}</div>
+    ${guessedItem ? `<div style="width:120px;height:120px;border-radius:10px;overflow:hidden;margin:8px auto;border:2px solid ${data.correct ? 'var(--green)' : 'var(--red)'}"><img src="${esc(guessedItem.img)}" style="width:100%;height:100%;object-fit:cover"></div>` : ''}
     <p style="color:var(--text2);font-size:15px">The Judge picked: <b style="color:var(--text)">${esc(data.guessed)}</b></p>
     ${!data.correct ? `<p style="color:var(--text3);font-size:14px;margin-top:4px">Correct answer: <b>${esc(data.actual)}</b></p>` : ''}
   `;
