@@ -344,6 +344,10 @@ input::placeholder{color:var(--text3)}
   <div class="gap"></div>
   <div class="word-grid" id="judge-grid"></div>
   <div class="player-list" id="judge-players" style="display:none"></div>
+  <div class="timer-wrap" id="judge-timer-wrap">
+    <div class="timer-ring"><svg viewBox="0 0 100 100"><circle class="bg" cx="50" cy="50" r="44"/><circle class="fg" id="judge-timer-fg" cx="50" cy="50" r="44"/></svg><div class="timer-digits" id="judge-timer-digits">15</div></div>
+    <div class="timer-label" style="color:var(--red)">DECIDE OR SUSPECTS WIN</div>
+  </div>
   <div class="spacer"></div>
   <div id="judge-waiting" class="waiting" style="display:none">Waiting for Judge's decision<span class="dots"></span></div>
   <button class="btn btn-gold" id="btn-judge-confirm" style="display:none" disabled onclick="judgeConfirmPick()">Confirm Selection</button>
@@ -757,6 +761,8 @@ function handleHostReceive(conn, data) {
     }
     case 'judge-pick': {
       if (!HOST) return;
+      // Cancel the decision timer
+      if (HOST.timerInterval) { clearInterval(HOST.timerInterval); HOST.timerInterval = null; }
       HOST.judgeGuesses[data.stage] = data.value;
       if (data.stage === 'location' || data.stage === 'weapon') {
         const correct = data.stage === 'location' ? HOST.correctLocation : HOST.correctWeapon;
@@ -779,7 +785,7 @@ function handleHostReceive(conn, data) {
         clearInterval(HOST.timerInterval);
         HOST.timerInterval = null;
         const stage = G.phase.includes('location') ? 'location' : 'weapon';
-        broadcast({ type: 'phase', phase: stage + '_judge' });
+        hostStartJudgePhase(stage);
       }
       break;
     }
@@ -790,11 +796,11 @@ function handleHostReceive(conn, data) {
         hostStartTimer(30, () => {
           broadcast({ type: 'phase', phase: 'weapon_discuss', timer: 90 });
           hostStartTimer(90, () => {
-            broadcast({ type: 'phase', phase: 'weapon_judge' });
+            hostStartJudgePhase('weapon');
           });
         });
       } else if (G.phase === 'weapon_result') {
-        broadcast({ type: 'phase', phase: 'suspect_judge' });
+        hostStartJudgePhase('suspect');
       }
       break;
     }
@@ -1030,12 +1036,34 @@ function hostStartGame() {
   });
 }
 
+const JUDGE_TIMER = 15;
+
 function startFirstPhase() {
   broadcast({ type: 'phase', phase: 'location_prep', timer: 30 });
   hostStartTimer(30, () => {
     broadcast({ type: 'phase', phase: 'location_discuss', timer: 90 });
     hostStartTimer(90, () => {
-      broadcast({ type: 'phase', phase: 'location_judge' });
+      hostStartJudgePhase('location');
+    });
+  });
+}
+
+function hostStartJudgePhase(stage) {
+  broadcast({ type: 'phase', phase: stage + '_judge', timer: JUDGE_TIMER });
+  hostStartTimer(JUDGE_TIMER, () => {
+    // Time's up — suspects win!
+    broadcast({
+      type: 'gameover',
+      teamWins: false,
+      locCorrect: HOST.judgeGuesses.location === HOST.correctLocation,
+      weapCorrect: HOST.judgeGuesses.weapon === HOST.correctWeapon,
+      witnessExposed: false,
+      timedOut: stage,
+      judgeGuesses: HOST.judgeGuesses,
+      suspectVotes: {},
+      correctLocation: HOST.correctLocation,
+      correctWeapon: HOST.correctWeapon,
+      roles: HOST.roles
     });
   });
 }
@@ -1186,18 +1214,30 @@ function resetTimerRing(total) {
 }
 
 function updateTimerDisplay() {
-  const fg = document.getElementById('game-timer-fg');
-  const digits = document.getElementById('game-timer-digits');
-  if (!fg || !digits) return;
-
   const total = G.timerTotal;
   const remaining = G.timerRemaining;
   const pct = total > 0 ? 1 - remaining / total : 0;
 
-  fg.style.strokeDashoffset = CIRC * pct;
-  digits.textContent = remaining;
-  if (remaining <= 10) fg.classList.add('urgent');
-  else fg.classList.remove('urgent');
+  // Update game screen timer (prep/discussion)
+  const fg = document.getElementById('game-timer-fg');
+  const digits = document.getElementById('game-timer-digits');
+  if (fg && digits) {
+    fg.style.strokeDashoffset = CIRC * pct;
+    digits.textContent = remaining;
+    if (remaining <= 10) fg.classList.add('urgent');
+    else fg.classList.remove('urgent');
+  }
+
+  // Update judge screen timer (decision timer)
+  const jfg = document.getElementById('judge-timer-fg');
+  const jdigits = document.getElementById('judge-timer-digits');
+  if (jfg && jdigits) {
+    jfg.style.strokeDasharray = CIRC;
+    jfg.style.strokeDashoffset = CIRC * pct;
+    jdigits.textContent = remaining;
+    if (remaining <= 5) jfg.classList.add('urgent');
+    else jfg.classList.remove('urgent');
+  }
 }
 
 // ======================== JUDGE PICK ========================
@@ -1270,6 +1310,14 @@ function renderJudgeScreen(stage) {
     confirmBtn.style.display = 'none';
     waitEl.style.display = 'block';
   }
+
+  // Initialize judge decision timer ring
+  const jfg = document.getElementById('judge-timer-fg');
+  const jdigits = document.getElementById('judge-timer-digits');
+  jfg.style.strokeDasharray = CIRC;
+  jfg.style.strokeDashoffset = 0;
+  jfg.classList.remove('urgent');
+  jdigits.textContent = G.timerTotal || JUDGE_TIMER;
 
   G.judgeSelection = null;
   showScreen('s-judge');
@@ -1390,11 +1438,12 @@ function showGameOver(data) {
     `;
   } else {
     let reason = '';
-    if (!data.locCorrect) reason += 'Wrong location. ';
-    if (!data.weapCorrect) reason += 'Wrong weapon. ';
+    if (data.timedOut) reason += 'Judge ran out of time! ';
+    if (!data.locCorrect && !data.timedOut) reason += 'Wrong location. ';
+    if (!data.weapCorrect && !data.timedOut) reason += 'Wrong weapon. ';
     if (data.witnessExposed) reason += 'Witness was exposed! ';
     content.innerHTML = `
-      <div style="font-size:64px">&#128308;</div>
+      <div style="font-size:64px">${data.timedOut ? '&#9203;' : '&#128308;'}</div>
       <div class="gap"></div>
       <h1 style="color:var(--red)">Suspects Win!</h1>
       <p class="subtitle" style="margin-top:8px">${reason.trim()}</p>
