@@ -6,7 +6,6 @@
 <title>Detectives</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<script src="https://unpkg.com/peerjs@1.5.5/dist/peerjs.min.js"></script>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;900&display=swap');
 
@@ -1218,15 +1217,12 @@ function translateStaticUI() {
 
 // ======================== STATE ========================
 const NET = {
-  peer: null,
-  connections: {},   // host: {peerId: {conn, name}}
-  hostConn: null,    // non-host: connection to host
+  connections: {},
   isHost: false,
   roomCode: '',
   myName: '',
   myId: '',
   players: [],       // [{name, id}]
-  heartbeat: null,
 };
 
 let G = {
@@ -1251,16 +1247,11 @@ let HOST = null;
 
 // ======================== LOCAL WIFI TRANSPORT ========================
 const LOCAL = {
-  active: false,
+  active: true,
   baseUrl: '',
   pollInterval: null,
   pollTs: 0,
 };
-
-function isLocalServer() {
-  const h = location.hostname;
-  return h === 'localhost' || h === '127.0.0.1' || /^192\.168\./.test(h) || /^10\./.test(h) || /^172\.(1[6-9]|2\d|3[01])\./.test(h);
-}
 
 async function localApi(body) {
   const res = await fetch(LOCAL.baseUrl + '/api/room', {
@@ -1395,113 +1386,35 @@ function showScreen(id) {
 }
 
 // ======================== NETWORKING ========================
-const PEER_CONFIG = {
-  debug: 1,
-  config: {
-    iceServers: [
-      { urls: 'stun:stun.l.google.com:19302' },
-      { urls: 'stun:stun1.l.google.com:19302' },
-      { urls: 'stun:stun2.l.google.com:19302' },
-      { urls: 'stun:stun.relay.metered.ca:80' },
-      { urls: 'turn:global.relay.metered.ca:80', username: 'e7e5e3e1d3c3b3a3', credential: 'openRelayProject' },
-      { urls: 'turn:global.relay.metered.ca:443', username: 'e7e5e3e1d3c3b3a3', credential: 'openRelayProject' },
-    ]
-  }
-};
-
-function makePeer(id) {
-  const opts = { ...PEER_CONFIG };
-  return id ? new Peer(id, opts) : new Peer(opts);
-}
-
-function setupHostListeners(peer) {
-  peer.on('connection', (conn) => {
-    conn.on('open', () => { /* wait for join message */ });
-    conn.on('data', (data) => handleHostReceive(conn, data));
-    conn.on('close', () => handlePlayerDisconnect(conn.peer));
-    conn.on('error', () => handlePlayerDisconnect(conn.peer));
-  });
-}
-
 async function createRoom() {
   const name = document.getElementById('host-name-input').value.trim();
   if (!name) { toast(t('enterName'), 'error'); return; }
 
-  if (LOCAL.active) {
-    NET.myName = name;
-    NET.isHost = true;
-    NET.roomCode = generateRoomCode();
-    NET.myId = 'host-' + NET.roomCode;
-    NET.players = [{ name: NET.myName, id: NET.myId }];
-
-    document.getElementById('btn-create').disabled = true;
-    document.getElementById('create-status').textContent = t('creatingRoom');
-
-    try {
-      const res = await localApi({ action: 'create', room: NET.roomCode, name: NET.myName });
-      if (res.ok) {
-        showLobby();
-        toast(t('roomCreated'), 'success');
-        startLocalPoll();
-      } else {
-        toast(res.error || 'Error', 'error');
-        document.getElementById('btn-create').disabled = false;
-        document.getElementById('create-status').textContent = '';
-      }
-    } catch (e) {
-      toast(t('connErr') + e.message, 'error');
-      document.getElementById('btn-create').disabled = false;
-      document.getElementById('create-status').textContent = '';
-    }
-    return;
-  }
+  NET.myName = name;
+  NET.isHost = true;
+  NET.roomCode = generateRoomCode();
+  NET.myId = 'host-' + NET.roomCode;
+  NET.players = [{ name: NET.myName, id: NET.myId }];
 
   document.getElementById('btn-create').disabled = true;
   document.getElementById('create-status').textContent = t('creatingRoom');
 
-  NET.myName = name;
-  NET.isHost = true;
-  NET.roomCode = generateRoomCode();
-  const peerId = 'detectives-' + NET.roomCode;
-
-  NET.peer = makePeer(peerId);
-
-  NET.peer.on('open', (id) => {
-    NET.myId = id;
-    NET.players = [{ name: NET.myName, id: NET.myId }];
-    showLobby();
-    toast(t('roomCreated'), 'success');
-  });
-
-  setupHostListeners(NET.peer);
-
-  NET.peer.on('error', (err) => {
-    if (err.type === 'unavailable-id') {
-      NET.peer.destroy();
-      NET.roomCode = generateRoomCode();
-      NET.peer = makePeer('detectives-' + NET.roomCode);
-      NET.peer.on('open', (id) => {
-        NET.myId = id;
-        NET.players = [{ name: NET.myName, id: NET.myId }];
-        showLobby();
-        toast(t('roomCreated'), 'success');
-      });
-      setupHostListeners(NET.peer);
-      NET.peer.on('error', handlePeerError);
+  try {
+    const res = await localApi({ action: 'create', room: NET.roomCode, name: NET.myName });
+    if (res.ok) {
+      showLobby();
+      toast(t('roomCreated'), 'success');
+      startLocalPoll();
     } else {
-      handlePeerError(err);
-    }
-  });
-
-  // Timeout — if PeerJS cloud doesn't respond in 10s, show error
-  setTimeout(() => {
-    if (!NET.myId) {
-      toast('PeerJS server not responding. Try again or use Local WiFi mode.', 'error');
+      toast(res.error || 'Error', 'error');
       document.getElementById('btn-create').disabled = false;
       document.getElementById('create-status').textContent = '';
-      if (NET.peer) { try { NET.peer.destroy(); } catch(e){} }
     }
-  }, 10000);
+  } catch (e) {
+    toast(t('connErr') + e.message, 'error');
+    document.getElementById('btn-create').disabled = false;
+    document.getElementById('create-status').textContent = '';
+  }
 }
 
 async function joinRoom() {
@@ -1510,183 +1423,74 @@ async function joinRoom() {
   if (!code || code.length !== 4) { toast(t('enterCode'), 'error'); return; }
   if (!name) { toast(t('enterName'), 'error'); return; }
 
-  if (LOCAL.active) {
-    NET.myName = name;
-    NET.isHost = false;
-    NET.roomCode = code;
-    NET.myId = 'player-' + name + '-' + Date.now();
-
-    document.getElementById('btn-join').disabled = true;
-    document.getElementById('join-status').textContent = t('connectingDots');
-
-    try {
-      const res = await localApi({ action: 'join', room: code, name: name });
-      if (res.ok) {
-        await localApi({ action: 'send', room: code, from: name, to: '*', msg: { type: 'join', name: name } });
-        startLocalPoll();
-      } else {
-        toast(res.error || t('roomNotFound'), 'error');
-        document.getElementById('btn-join').disabled = false;
-        document.getElementById('join-status').textContent = '';
-      }
-    } catch (e) {
-      toast(t('cantConnect'), 'error');
-      document.getElementById('btn-join').disabled = false;
-      document.getElementById('join-status').textContent = '';
-    }
-    return;
-  }
+  NET.myName = name;
+  NET.isHost = false;
+  NET.roomCode = code;
+  NET.myId = 'player-' + name + '-' + Date.now();
 
   document.getElementById('btn-join').disabled = true;
   document.getElementById('join-status').textContent = t('connectingDots');
 
-  NET.myName = name;
-  NET.isHost = false;
-  NET.roomCode = code;
-
-  NET.peer = makePeer();
-
-  NET.peer.on('open', (id) => {
-    NET.myId = id;
-    const hostId = 'detectives-' + code;
-    const conn = NET.peer.connect(hostId, { reliable: true, serialization: 'json' });
-
-    conn.on('open', () => {
-      NET.hostConn = conn;
-      conn.send({ type: 'join', name: NET.myName, id: NET.myId });
-    });
-
-    conn.on('data', (data) => handleClientReceive(data));
-
-    conn.on('close', () => {
-      showDisconnect(t('hostDC'));
-    });
-
-    conn.on('error', () => {
-      showDisconnect(t('hostLost'));
-    });
-
-    // Timeout for connection
-    setTimeout(() => {
-      if (!NET.hostConn) {
-        toast(t('cantConnect'), 'error');
-        document.getElementById('btn-join').disabled = false;
-        document.getElementById('join-status').textContent = '';
-        if (NET.peer) NET.peer.destroy();
-      }
-    }, 8000);
-  });
-
-  NET.peer.on('error', (err) => {
-    if (err.type === 'peer-unavailable') {
-      toast(t('roomNotFound'), 'error');
+  try {
+    const res = await localApi({ action: 'join', room: code, name: name });
+    if (res.ok) {
+      await localApi({ action: 'send', room: code, from: name, to: '*', msg: { type: 'join', name: name } });
+      startLocalPoll();
+    } else {
+      toast(res.error || t('roomNotFound'), 'error');
       document.getElementById('btn-join').disabled = false;
       document.getElementById('join-status').textContent = '';
-    } else {
-      handlePeerError(err);
     }
-  });
-}
-
-function handlePeerError(err) {
-  console.error('PeerJS error:', err.type, err.message, err);
-  let msg = err.type || err.message || 'Unknown error';
-  if (err.type === 'network') msg = 'Network error — check your internet connection';
-  else if (err.type === 'server-error') msg = 'PeerJS server error — try again in a moment';
-  else if (err.type === 'socket-error') msg = 'Connection failed — server may be down';
-  else if (err.type === 'socket-closed') msg = 'Connection dropped — try again';
-  toast(t('connErr') + msg, 'error');
-  document.getElementById('btn-create').disabled = false;
-  document.getElementById('btn-join').disabled = false;
-  document.getElementById('create-status').textContent = '';
-  document.getElementById('join-status').textContent = '';
+  } catch (e) {
+    toast(t('cantConnect'), 'error');
+    document.getElementById('btn-join').disabled = false;
+    document.getElementById('join-status').textContent = '';
+  }
 }
 
 function broadcast(msg) {
-  if (LOCAL.active) {
-    localApi({ action: 'send', room: NET.roomCode, from: NET.myName, to: '*', msg: msg });
-    // Host also processes the message locally
-    handleClientReceive(msg);
-    return;
-  }
-  Object.values(NET.connections).forEach(({ conn }) => {
-    if (conn.open) conn.send(msg);
-  });
-  // Host also processes the message
+  localApi({ action: 'send', room: NET.roomCode, from: NET.myName, to: '*', msg: msg });
   handleClientReceive(msg);
 }
 
 function sendToHost(msg) {
-  if (LOCAL.active) {
-    if (NET.isHost) {
-      handleHostReceive(null, { ...msg, _fromHost: true, _fromName: NET.myName });
-    } else {
-      localApi({ action: 'send', room: NET.roomCode, from: NET.myName, to: '__HOST__', msg: msg });
-    }
-    return;
-  }
   if (NET.isHost) {
-    handleHostReceive(null, { ...msg, _fromHost: true });
-  } else if (NET.hostConn && NET.hostConn.open) {
-    NET.hostConn.send(msg);
+    handleHostReceive(null, { ...msg, _fromHost: true, _fromName: NET.myName });
+  } else {
+    localApi({ action: 'send', room: NET.roomCode, from: NET.myName, to: '__HOST__', msg: msg });
   }
 }
 
 function sendToPlayer(targetId, msg) {
-  if (LOCAL.active) {
-    if (targetId === NET.myId) {
-      handleClientReceive(msg);
-    } else {
-      // In local mode, find player name from NET.players by id
-      const player = NET.players.find(p => p.id === targetId);
-      if (player) {
-        localApi({ action: 'send', room: NET.roomCode, from: NET.myName, to: player.name, msg: msg });
-      }
-    }
-    return;
-  }
   if (targetId === NET.myId) {
     handleClientReceive(msg);
   } else {
-    const c = NET.connections[targetId];
-    if (c && c.conn.open) c.conn.send(msg);
+    const player = NET.players.find(p => p.id === targetId);
+    if (player) {
+      localApi({ action: 'send', room: NET.roomCode, from: NET.myName, to: player.name, msg: msg });
+    }
   }
 }
 
 // ======================== HOST MESSAGE HANDLER ========================
 function handleHostReceive(conn, data) {
-  const senderId = data._fromHost ? NET.myId : (conn ? conn.peer : (data._fromName ? ('local-' + data._fromName) : null));
+  const senderId = data._fromHost ? NET.myId : (data._fromName ? ('local-' + data._fromName) : null);
 
   switch (data.type) {
     case 'join': {
       if (NET.players.length >= SETTINGS.maxPlayers) {
-        if (LOCAL.active && data._fromName) {
-          localApi({ action: 'send', room: NET.roomCode, from: NET.myName, to: data._fromName, msg: { type: 'error', msg: t('roomFull') } });
-        } else if (conn) { conn.send({ type: 'error', msg: t('roomFull') }); }
+        localApi({ action: 'send', room: NET.roomCode, from: NET.myName, to: data.name, msg: { type: 'error', msg: t('roomFull') } });
         return;
       }
       if (NET.players.some(p => p.name === data.name)) {
-        if (LOCAL.active && data._fromName) {
-          localApi({ action: 'send', room: NET.roomCode, from: NET.myName, to: data._fromName, msg: { type: 'error', msg: t('nameTaken') } });
-        } else if (conn) { conn.send({ type: 'error', msg: t('nameTaken') }); }
+        localApi({ action: 'send', room: NET.roomCode, from: NET.myName, to: data.name, msg: { type: 'error', msg: t('nameTaken') } });
         return;
       }
-      if (LOCAL.active) {
-        const fakeId = 'local-' + data.name;
-        NET.connections[fakeId] = { conn: null, name: data.name };
-        NET.players.push({ name: data.name, id: fakeId });
-        broadcast({ type: 'lobby', players: NET.players, roomCode: NET.roomCode });
-        toast(data.name + t('xJoined'), 'success');
-      } else if (conn) {
-        NET.connections[conn.peer] = { conn, name: data.name };
-        NET.players.push({ name: data.name, id: conn.peer });
-        broadcast({ type: 'lobby', players: NET.players, roomCode: NET.roomCode });
-        toast(data.name + t('xJoined'), 'success');
-      } else {
-        NET.players.push({ name: data.name, id: NET.myId });
-        broadcast({ type: 'lobby', players: NET.players, roomCode: NET.roomCode });
-        toast(data.name + t('xJoined'), 'success');
-      }
+      const fakeId = 'local-' + data.name;
+      NET.connections[fakeId] = { conn: null, name: data.name };
+      NET.players.push({ name: data.name, id: fakeId });
+      broadcast({ type: 'lobby', players: NET.players.map(p => p.name) });
+      toast(data.name + t('xJoined'), 'success');
       break;
     }
     case 'ready': {
@@ -1867,12 +1671,8 @@ function showDisconnect(msg) {
 }
 
 function leaveGame() {
-  if (LOCAL.active) {
-    stopLocalPoll();
-    localApi({ action: 'leave', room: NET.roomCode, name: NET.myName }).catch(() => {});
-  }
-  if (NET.peer) NET.peer.destroy();
-  clearInterval(NET.heartbeat);
+  stopLocalPoll();
+  localApi({ action: 'leave', room: NET.roomCode, name: NET.myName }).catch(() => {});
   location.reload();
 }
 
@@ -2528,11 +2328,8 @@ function spawnParticles() {
 
 // ======================== INIT ========================
 function init() {
-  if (isLocalServer()) {
-    LOCAL.active = true;
-    LOCAL.baseUrl = location.origin;
-    document.getElementById('local-badge').style.display = 'block';
-  }
+  LOCAL.baseUrl = location.origin;
+  document.getElementById('local-badge').style.display = 'block';
   setLang(currentLang);
   const params = new URLSearchParams(window.location.search);
   const joinCode = params.get('join') || params.get('room');
