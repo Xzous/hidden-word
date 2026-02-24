@@ -19,7 +19,7 @@ import threading
 import time
 import urllib.parse
 
-PORT = 8080
+PORT = 4545
 ROOM_TIMEOUT = 30 * 60
 MSG_TTL = 60
 CLEANUP_INTERVAL = 30
@@ -267,7 +267,13 @@ def main():
     print()
 
     # Start HTTP server in a thread so tunnel can start in parallel
-    server = http.server.HTTPServer(("0.0.0.0", PORT), Handler)
+    try:
+        server = http.server.HTTPServer(("0.0.0.0", PORT), Handler)
+    except OSError as e:
+        print(f"   ERROR: Port {PORT} is already in use.")
+        print(f"   Close the other server or change PORT in serve.py.")
+        input("   Press Enter to exit...")
+        return
     server_thread = threading.Thread(target=server.serve_forever, daemon=True)
     server_thread.start()
 
