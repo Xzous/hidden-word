@@ -3,18 +3,18 @@
 Detectives — Game Server
 
 Serves the game and relays messages between players.
-Auto-creates a public URL via ngrok so anyone can join from anywhere.
+Auto-creates a public URL so anyone can join from anywhere.
 
 Usage:
     python serve.py
-
-Requires: pip install pyngrok
 """
 
 import http.server
 import json
 import os
+import re
 import socket
+import subprocess
 import threading
 import time
 import urllib.parse
@@ -208,6 +208,48 @@ class Handler(http.server.SimpleHTTPRequestHandler):
             self.send_json({"error": f"Unknown action: {action}"}, 400)
 
 
+def start_tunnel(port):
+    """Try to create a public tunnel using SSH (localhost.run) — no signup needed."""
+    public_url = None
+
+    # Method 1: localhost.run via SSH (free, no account)
+    try:
+        proc = subprocess.Popen(
+            ["ssh", "-o", "StrictHostKeyChecking=no", "-o", "ServerAliveInterval=30",
+             "-R", f"80:localhost:{port}", "nokey@localhost.run"],
+            stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+            text=True, creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0)
+        )
+        # Read output lines until we find the URL
+        deadline = time.time() + 15
+        while time.time() < deadline:
+            line = proc.stdout.readline()
+            if not line:
+                break
+            match = re.search(r'(https?://[a-z0-9]+\.lhr\.life\S*)', line)
+            if match:
+                public_url = match.group(1).rstrip()
+                break
+        if public_url:
+            # Keep SSH process alive in background
+            threading.Thread(target=lambda: proc.wait(), daemon=True).start()
+            return public_url, proc
+    except FileNotFoundError:
+        pass
+    except Exception as e:
+        print(f"  [!] SSH tunnel failed: {e}")
+
+    # Method 2: pyngrok (requires: pip install pyngrok + free ngrok account)
+    try:
+        from pyngrok import ngrok
+        tunnel = ngrok.connect(port, "http")
+        return tunnel.public_url, None
+    except Exception:
+        pass
+
+    return None, None
+
+
 def main():
     ip = get_local_ip()
 
@@ -215,50 +257,48 @@ def main():
     cleaner = threading.Thread(target=cleanup_rooms, daemon=True)
     cleaner.start()
 
-    # Try to create a public ngrok tunnel
-    public_url = None
-    try:
-        from pyngrok import ngrok
-        tunnel = ngrok.connect(PORT, "http")
-        public_url = tunnel.public_url
-    except Exception as e:
-        print(f"  [!] ngrok not available: {e}")
-        print(f"  [!] Install with: pip install pyngrok")
-        print()
-
     print()
     print("=" * 58)
     print("   DETECTIVES - Game Server")
     print("=" * 58)
     print()
+    print(f"   Starting server on port {PORT}...")
+    print(f"   Creating public tunnel...")
+    print()
+
+    # Start HTTP server in a thread so tunnel can start in parallel
+    server = http.server.HTTPServer(("0.0.0.0", PORT), Handler)
+    server_thread = threading.Thread(target=server.serve_forever, daemon=True)
+    server_thread.start()
+
+    # Create public tunnel
+    public_url, tunnel_proc = start_tunnel(PORT)
+
+    # Clear and show final status
+    print("\033[F\033[F\033[K", end="")  # Move up and clear lines
     if public_url:
-        print(f"   PUBLIC URL (share this!):")
+        print(f"   SHARE THIS LINK:")
         print()
         print(f"       {public_url}")
         print()
-        print(f"   Anyone with this link can join from anywhere.")
+        print(f"   Anyone can join from anywhere!")
     else:
-        print(f"   LOCAL ONLY: http://{ip}:{PORT}")
+        print(f"   LOCAL: http://{ip}:{PORT}")
         print()
-        print(f"   (Same WiFi network only)")
+        print(f"   (Same WiFi only — for public access, install ngrok)")
     print()
     print("=" * 58)
-    print()
-    print("   Press Ctrl+C to stop the server.")
+    print("   Press Ctrl+C to stop.")
     print()
 
-    # Start HTTP server
-    server = http.server.HTTPServer(("0.0.0.0", PORT), Handler)
     try:
-        server.serve_forever()
+        while True:
+            time.sleep(1)
     except KeyboardInterrupt:
         print("\n   Server stopped.")
-        server.server_close()
-        if public_url:
-            try:
-                ngrok.kill()
-            except Exception:
-                pass
+        server.shutdown()
+        if tunnel_proc:
+            tunnel_proc.terminate()
 
 
 if __name__ == "__main__":
