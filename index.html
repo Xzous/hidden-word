@@ -3,75 +3,107 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>The Hidden Word</title>
+<title>Detectives</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <script src="https://unpkg.com/peerjs@1.5.5/dist/peerjs.min.js"></script>
 <style>
+@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;900&display=swap');
+
 *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
 :root{
---bg:#0f0f1a;--bg2:#1a1a2e;--card:#1e1e35;--card2:#252545;
---gold:#d4a843;--gold2:#f0c866;--gold-dim:#8a7030;
---green:#4caf50;--red:#e53935;--blue:#42a5f5;--purple:#ab47bc;
---text:#e8e8f0;--text2:#9999bb;--text3:#666680;
---radius:14px;--shadow:0 4px 24px rgba(0,0,0,0.4);
+--bg:#12080a;--bg2:#1a0e11;--card:#221418;--card2:#2c1a1f;
+--gold:#c9a84c;--gold2:#dfc06a;--gold-dim:#7a6428;
+--green:#5a9e6f;--red:#a83232;--blue:#6b8db5;--purple:#8b5e7a;
+--maroon:#7a2030;--maroon2:#a03040;--maroon-dim:#4a1218;
+--text:#ede4dc;--text2:#a89a8e;--text3:#6b5f56;
+--radius:14px;--shadow:0 8px 32px rgba(0,0,0,0.55);
+--font-display:'Playfair Display',Georgia,'Times New Roman',serif;
 }
-html,body{height:100%;font-family:'Segoe UI',Tahoma,sans-serif;background:var(--bg);color:var(--text);overflow:hidden}
-#app{height:100%;display:flex;flex-direction:column;max-width:480px;margin:0 auto;position:relative}
+html,body{height:100%;font-family:'Segoe UI',system-ui,-apple-system,sans-serif;background:var(--bg);color:var(--text);overflow:hidden}
+#app{height:100%;display:flex;flex-direction:column;max-width:480px;margin:0 auto;position:relative;z-index:1}
+
+/* ===== ATMOSPHERE ===== */
+#atmosphere{position:fixed;inset:0;pointer-events:none;z-index:0;overflow:hidden}
+.ambient-glow{position:absolute;border-radius:50%;filter:blur(100px);opacity:0.07;animation:glowDrift 25s ease-in-out infinite alternate}
+.ambient-glow.g1{width:500px;height:500px;background:var(--maroon);top:-150px;left:-150px}
+.ambient-glow.g2{width:350px;height:350px;background:var(--gold);bottom:-100px;right:-150px;animation-delay:-12s}
+.ambient-glow.g3{width:250px;height:250px;background:var(--maroon2);top:40%;right:-80px;animation-delay:-7s}
+#vignette{position:fixed;inset:0;pointer-events:none;z-index:998;
+  background:radial-gradient(ellipse at 50% 45%,transparent 40%,rgba(12,6,8,0.8) 100%)}
+.particle{position:fixed;background:rgba(201,168,76,0.15);border-radius:50%;pointer-events:none;z-index:0}
+#urgent-border{position:fixed;inset:0;pointer-events:none;z-index:997;border:3px solid transparent;
+  transition:border-color .3s;border-radius:4px}
+#urgent-border.active{animation:urgentPulse 1s ease-in-out infinite}
 
 /* ===== SCREENS ===== */
 .screen{position:absolute;inset:0;display:flex;flex-direction:column;padding:20px;overflow-y:auto;
-  opacity:0;pointer-events:none;transform:translateY(20px);transition:opacity .4s,transform .4s}
-.screen.active{opacity:1;pointer-events:auto;transform:translateY(0)}
+  opacity:0;pointer-events:none;transform:translateY(12px) scale(0.99);
+  transition:opacity .5s cubic-bezier(.16,1,.3,1),transform .5s cubic-bezier(.16,1,.3,1)}
+.screen.active{opacity:1;pointer-events:auto;transform:translateY(0) scale(1)}
 
 /* ===== TYPOGRAPHY ===== */
-h1{font-size:28px;font-weight:800;color:var(--gold);text-align:center;letter-spacing:1px}
-h2{font-size:20px;font-weight:700;color:var(--gold2);text-align:center;margin-bottom:8px}
+h1{font-family:var(--font-display);font-size:30px;font-weight:900;color:var(--gold);text-align:center;
+  letter-spacing:var(--ls,4px);text-shadow:0 0 40px rgba(201,168,76,0.2)}
+h2{font-family:var(--font-display);font-size:22px;font-weight:700;color:var(--gold2);text-align:center;
+  margin-bottom:8px;letter-spacing:0.5px}
 h3{font-size:16px;font-weight:600;color:var(--text2);text-align:center}
-.subtitle{font-size:14px;color:var(--text2);text-align:center;margin-top:4px;line-height:1.5}
+.subtitle{font-size:14px;color:var(--text2);text-align:center;margin-top:4px;line-height:1.6}
 
 /* ===== BUTTONS ===== */
 .btn{display:block;width:100%;padding:16px;border:none;border-radius:var(--radius);font-size:17px;
-  font-weight:700;cursor:pointer;transition:all .15s;text-align:center;font-family:inherit}
-.btn-gold{background:linear-gradient(135deg,var(--gold),var(--gold2));color:#1a1a2e;box-shadow:0 4px 16px rgba(212,168,67,0.3)}
-.btn-gold:active{transform:scale(0.97);box-shadow:0 2px 8px rgba(212,168,67,0.2)}
-.btn-outline{background:transparent;border:2px solid var(--gold-dim);color:var(--gold)}
-.btn-outline:active{background:rgba(212,168,67,0.1)}
-.btn-red{background:var(--red);color:white}
-.btn-green{background:var(--green);color:white}
+  font-weight:700;cursor:pointer;transition:all .2s cubic-bezier(.16,1,.3,1);text-align:center;font-family:inherit;
+  position:relative;overflow:hidden}
+.btn::after{content:'';position:absolute;inset:0;opacity:0;
+  background:radial-gradient(circle at 50% 50%,rgba(255,255,255,0.08),transparent 70%);transition:opacity .2s}
+.btn:active::after{opacity:1}
+.btn-gold{background:linear-gradient(135deg,var(--maroon),var(--maroon2));color:var(--text);
+  box-shadow:0 4px 24px rgba(122,32,48,0.35),inset 0 1px 0 rgba(255,255,255,0.1);
+  text-shadow:0 1px 2px rgba(0,0,0,0.3)}
+.btn-gold:active{transform:scale(0.97);box-shadow:0 2px 12px rgba(122,32,48,0.3)}
+.btn-outline{background:transparent;border:2px solid var(--maroon-dim);color:var(--gold)}
+.btn-outline:active{background:rgba(122,32,48,0.1);transform:scale(0.97)}
+.btn-red{background:var(--red);color:white;box-shadow:0 4px 16px rgba(168,50,50,0.3)}
+.btn-green{background:var(--green);color:white;box-shadow:0 4px 16px rgba(90,158,111,0.3)}
 .btn-sm{padding:10px 16px;font-size:14px;width:auto;display:inline-block}
-.btn:disabled{opacity:0.4;pointer-events:none}
+.btn:disabled{opacity:0.35;pointer-events:none}
 
 /* ===== INPUT ===== */
-input[type=text]{width:100%;padding:14px 16px;background:var(--card2);border:2px solid transparent;
+input[type=text]{width:100%;padding:14px 16px;background:var(--card2);border:2px solid rgba(255,255,255,0.05);
   border-radius:var(--radius);color:var(--text);font-size:16px;font-family:inherit;outline:none;
-  transition:border-color .2s}
-input[type=text]:focus{border-color:var(--gold)}
+  transition:border-color .3s,box-shadow .3s}
+input[type=text]:focus{border-color:var(--maroon);box-shadow:0 0 20px rgba(122,32,48,0.1)}
 input::placeholder{color:var(--text3)}
 
 /* ===== CARDS ===== */
-.card{background:var(--card);border-radius:var(--radius);padding:20px;box-shadow:var(--shadow)}
-.card-glow{border:1px solid rgba(212,168,67,0.2);box-shadow:var(--shadow),0 0 30px rgba(212,168,67,0.05)}
+.card{background:linear-gradient(160deg,var(--card),var(--card2));border-radius:var(--radius);padding:20px;
+  box-shadow:var(--shadow);border:1px solid rgba(255,255,255,0.04)}
+.card-glow{border:1px solid rgba(122,32,48,0.2);
+  box-shadow:var(--shadow),0 0 50px rgba(122,32,48,0.05),inset 0 0 30px rgba(122,32,48,0.02)}
 
 /* ===== PLAYER CHIPS ===== */
 .player-chip{display:inline-flex;align-items:center;gap:6px;padding:8px 14px;border-radius:30px;
-  font-size:14px;font-weight:600;background:var(--card2);border:1.5px solid var(--text3);margin:4px;
-  transition:all .2s;cursor:pointer}
-.player-chip.selected{border-color:var(--gold);background:rgba(212,168,67,0.15);color:var(--gold)}
+  font-size:14px;font-weight:600;background:var(--card2);border:1.5px solid rgba(255,255,255,0.06);margin:4px;
+  transition:all .25s;cursor:pointer}
+.player-chip.selected{border-color:var(--gold);background:rgba(201,168,76,0.1);color:var(--gold);
+  box-shadow:0 0 16px rgba(201,168,76,0.12)}
 .player-chip .dot{width:8px;height:8px;border-radius:50%;background:var(--green);display:inline-block}
 
 /* ===== WORD GRID ===== */
 .word-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin:12px 0}
-.word-cell{padding:0;border-radius:10px;background:var(--card2);border:2px solid transparent;
-  text-align:center;font-size:15px;font-weight:600;cursor:default;transition:all .2s;
-  min-height:50px;display:flex;flex-direction:column;align-items:center;justify-content:center;user-select:none;
-  overflow:hidden;position:relative}
+.word-cell{padding:0;border-radius:12px;background:var(--card2);border:2px solid rgba(255,255,255,0.04);
+  text-align:center;font-size:15px;font-weight:600;cursor:default;transition:all .25s cubic-bezier(.16,1,.3,1);
+  aspect-ratio:1;display:flex;flex-direction:column;align-items:center;justify-content:center;user-select:none;
+  overflow:hidden;position:relative;box-shadow:0 4px 16px rgba(0,0,0,0.35)}
+.word-cell .cell-icon{font-size:36px;line-height:1;margin-bottom:4px;filter:drop-shadow(0 2px 6px rgba(0,0,0,0.4))}
+.word-cell .cell-label{font-size:10px;font-weight:700;color:var(--text);text-transform:uppercase;letter-spacing:0.5px;
+  padding:0 4px;line-height:1.2;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.word-cell .cell-accent{position:absolute;inset:0;border-radius:10px;opacity:0.12;pointer-events:none}
 .word-cell.interactive{cursor:pointer}
-.word-cell.interactive:active{transform:scale(0.96)}
-.word-cell.selected{border-color:var(--gold);box-shadow:0 0 12px rgba(212,168,67,0.3)}
-.word-cell.correct{border-color:var(--green);box-shadow:0 0 12px rgba(76,175,80,0.3)}
-.word-cell.wrong{border-color:var(--red);box-shadow:0 0 12px rgba(229,57,53,0.3)}
-.word-cell img{width:100%;height:100%;object-fit:cover;display:block;border-radius:8px}
-.word-cell .cell-label{position:absolute;bottom:0;left:0;right:0;padding:4px;font-size:11px;font-weight:700;
-  background:rgba(15,15,26,0.8);color:var(--text);text-transform:uppercase;letter-spacing:0.5px}
+.word-cell.interactive:active{transform:scale(0.94)}
+.word-cell.selected{border-color:var(--gold);box-shadow:0 0 24px rgba(201,168,76,0.3),inset 0 0 20px rgba(201,168,76,0.04)}
+.word-cell.correct{border-color:var(--green);box-shadow:0 0 20px rgba(90,158,111,0.3)}
+.word-cell.wrong{border-color:var(--red);box-shadow:0 0 20px rgba(168,50,50,0.3)}
 
 /* ===== TIMER ===== */
 .timer-wrap{display:flex;flex-direction:column;align-items:center;margin:16px 0}
@@ -79,70 +111,108 @@ input::placeholder{color:var(--text3)}
 .timer-ring svg{width:100%;height:100%;transform:rotate(-90deg)}
 .timer-ring circle{fill:none;stroke-width:6;stroke-linecap:round}
 .timer-ring .bg{stroke:var(--card2)}
-.timer-ring .fg{stroke:var(--gold);transition:stroke-dashoffset .5s linear,stroke .3s}
-.timer-ring .fg.urgent{stroke:var(--red)}
+.timer-ring .fg{stroke:var(--gold);transition:stroke-dashoffset .5s linear,stroke .3s;
+  filter:drop-shadow(0 0 6px rgba(201,168,76,0.25))}
+.timer-ring .fg.urgent{stroke:var(--red);filter:drop-shadow(0 0 10px rgba(168,50,50,0.5))}
 .timer-digits{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
-  font-size:28px;font-weight:800;font-variant-numeric:tabular-nums}
-.timer-label{font-size:13px;color:var(--text2);margin-top:6px;font-weight:600}
+  font-size:28px;font-weight:800;font-variant-numeric:tabular-nums;transition:color .3s}
+.timer-label{font-size:13px;color:var(--text2);margin-top:6px;font-weight:600;letter-spacing:1px;text-transform:uppercase}
 
 /* ===== ROLE CARD (flip) ===== */
-.role-card-container{perspective:600px;margin:20px 0}
-.role-card{position:relative;width:100%;min-height:220px;transition:transform .6s;transform-style:preserve-3d}
+.role-card-container{perspective:800px;margin:20px 0}
+.role-card{position:relative;width:100%;min-height:240px;transition:transform .7s cubic-bezier(.4,0,.2,1);transform-style:preserve-3d}
 .role-card.flipped{transform:rotateY(180deg)}
 .role-card .face{position:absolute;inset:0;backface-visibility:hidden;border-radius:var(--radius);
   display:flex;flex-direction:column;align-items:center;justify-content:center;padding:24px}
-.role-card .front{background:linear-gradient(135deg,var(--card),var(--card2));border:2px solid var(--gold-dim);cursor:pointer}
-.role-card .front::after{content:'Tap to Reveal';color:var(--gold);font-size:16px;font-weight:600;margin-top:12px}
-.role-card .back{transform:rotateY(180deg);border:2px solid var(--gold)}
+.role-card .front{background:linear-gradient(135deg,var(--card),var(--card2));border:2px solid var(--maroon-dim);
+  cursor:pointer;box-shadow:0 0 50px rgba(122,32,48,0.06)}
+.role-card .front::after{content:var(--tap-text, 'Tap to Reveal');font-family:var(--font-display);color:var(--gold);
+  font-size:16px;font-weight:700;margin-top:12px;letter-spacing:2px}
+.role-card .back{transform:rotateY(180deg);border:2px solid var(--maroon);
+  box-shadow:0 0 40px rgba(122,32,48,0.1)}
 .role-icon{font-size:48px;margin-bottom:8px}
-.role-name{font-size:22px;font-weight:800}
-.role-word{font-size:18px;color:var(--gold2);margin-top:12px;padding:8px 20px;background:rgba(212,168,67,0.1);
+.role-name{font-family:var(--font-display);font-size:24px;font-weight:900;letter-spacing:1px}
+.role-word{font-size:18px;color:var(--gold2);margin-top:12px;padding:8px 20px;background:rgba(201,168,76,0.06);
   border-radius:8px;border:1px dashed var(--gold-dim)}
 
 /* ===== ROLE INFO BADGE ===== */
 .role-info{padding:12px 16px;border-radius:12px;margin:8px 0;text-align:center;font-weight:600;font-size:14px}
-.role-info.judge{background:rgba(212,168,67,0.1);border:1px solid rgba(212,168,67,0.25);color:var(--gold)}
-.role-info.witness{background:rgba(76,175,80,0.1);border:1px solid rgba(76,175,80,0.25);color:var(--green)}
-.role-info.detective{background:rgba(66,165,245,0.1);border:1px solid rgba(66,165,245,0.25);color:var(--blue)}
-.role-info.suspect{background:rgba(229,57,53,0.1);border:1px solid rgba(229,57,53,0.25);color:var(--red)}
-.role-info .hint-word{font-size:20px;font-weight:800;display:block;margin-top:4px;letter-spacing:1px}
+.role-info.judge{background:rgba(201,168,76,0.08);border:1px solid rgba(201,168,76,0.2);color:var(--gold)}
+.role-info.witness{background:rgba(90,158,111,0.08);border:1px solid rgba(90,158,111,0.2);color:var(--green)}
+.role-info.detective{background:rgba(107,141,181,0.08);border:1px solid rgba(107,141,181,0.2);color:var(--blue)}
+.role-info.suspect{background:rgba(168,50,50,0.08);border:1px solid rgba(168,50,50,0.2);color:var(--red)}
+.role-info .hint-word{font-family:var(--font-display);font-size:22px;font-weight:900;display:block;
+  margin-top:4px;letter-spacing:1px}
 
 /* ===== STAGE BADGE ===== */
 .stage-badge{display:inline-flex;align-items:center;gap:6px;padding:6px 14px;border-radius:20px;
-  font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:1px;margin:8px auto}
-.stage-badge.loc{background:rgba(66,165,245,0.15);color:var(--blue);border:1px solid rgba(66,165,245,0.3)}
-.stage-badge.weap{background:rgba(229,57,53,0.15);color:var(--red);border:1px solid rgba(229,57,53,0.3)}
-.stage-badge.sus{background:rgba(171,71,188,0.15);color:var(--purple);border:1px solid rgba(171,71,188,0.3)}
+  font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:var(--ls-sm,1.5px);margin:8px auto}
+.stage-badge.loc{background:rgba(107,141,181,0.1);color:var(--blue);border:1px solid rgba(107,141,181,0.25)}
+.stage-badge.weap{background:rgba(168,50,50,0.1);color:var(--red);border:1px solid rgba(168,50,50,0.25)}
+.stage-badge.sus{background:rgba(139,94,122,0.1);color:var(--purple);border:1px solid rgba(139,94,122,0.25)}
 
 /* ===== RESULT BANNER ===== */
-.result-banner{padding:16px;border-radius:var(--radius);text-align:center;font-size:18px;font-weight:700;
-  margin:12px 0;animation:popIn .4s}
-.result-banner.correct{background:rgba(76,175,80,0.15);color:var(--green);border:1px solid rgba(76,175,80,0.3)}
-.result-banner.wrong{background:rgba(229,57,53,0.15);color:var(--red);border:1px solid rgba(229,57,53,0.3)}
+.result-banner{padding:16px;border-radius:var(--radius);text-align:center;font-family:var(--font-display);
+  font-size:20px;font-weight:700;margin:12px 0;animation:resultReveal .5s cubic-bezier(.16,1,.3,1);letter-spacing:1px}
+.result-banner.correct{background:rgba(90,158,111,0.1);color:var(--green);border:1px solid rgba(90,158,111,0.25);
+  box-shadow:0 0 30px rgba(90,158,111,0.06)}
+.result-banner.wrong{background:rgba(168,50,50,0.1);color:var(--red);border:1px solid rgba(168,50,50,0.25);
+  box-shadow:0 0 30px rgba(168,50,50,0.06)}
 
 /* ===== PLAYER LIST ===== */
 .player-list{display:flex;flex-wrap:wrap;justify-content:center;gap:4px;margin:8px 0}
 
 /* ===== LOBBY ===== */
-.room-code{font-size:42px;font-weight:900;letter-spacing:12px;color:var(--gold2);text-align:center;
-  padding:16px;background:var(--card);border-radius:var(--radius);border:2px dashed var(--gold-dim);
-  font-family:'Courier New',monospace;margin:12px 0;user-select:all}
+.room-code{font-size:42px;font-weight:900;letter-spacing:var(--ls-code,12px);color:var(--gold2);text-align:center;
+  padding:20px;background:var(--card);border-radius:var(--radius);border:2px dashed var(--gold-dim);
+  font-family:'Courier New',monospace;margin:12px 0;user-select:all;
+  text-shadow:0 0 24px rgba(223,192,106,0.2);box-shadow:inset 0 0 40px rgba(201,168,76,0.02)}
 .lobby-player{display:flex;align-items:center;gap:10px;padding:10px 14px;background:var(--card2);
-  border-radius:10px;margin-bottom:8px;animation:slideIn .3s}
+  border-radius:10px;margin-bottom:8px;animation:slideIn .3s;border:1px solid rgba(255,255,255,0.03)}
 .lobby-player .name{flex:1;font-weight:600;font-size:15px}
-.lobby-player .host-tag{font-size:11px;padding:3px 8px;border-radius:10px;background:rgba(212,168,67,0.2);
-  color:var(--gold);font-weight:700}
-.lobby-player .dot{width:10px;height:10px;border-radius:50%;background:var(--green)}
+.lobby-player .host-tag{font-size:11px;padding:3px 8px;border-radius:10px;background:rgba(122,32,48,0.2);
+  color:var(--maroon2);font-weight:700;letter-spacing:0.5px}
+.lobby-player .dot{width:10px;height:10px;border-radius:50%;background:var(--green);
+  box-shadow:0 0 6px rgba(90,158,111,0.35)}
+
+/* ===== HOST SETTINGS ===== */
+.settings-toggle{display:flex;align-items:center;justify-content:space-between;padding:12px 16px;
+  background:var(--card);border-radius:var(--radius);cursor:pointer;margin:12px 0;border:1px solid rgba(255,255,255,0.04);
+  font-weight:600;font-size:14px;color:var(--text);user-select:none;transition:border-color .2s}
+.settings-toggle:active{border-color:var(--maroon-dim)}
+.settings-toggle .arrow{transition:transform .3s;font-size:12px;color:var(--text2)}
+.settings-toggle .arrow.open{transform:rotate(180deg)}
+.settings-panel{overflow:hidden;max-height:0;transition:max-height .4s ease;margin:0 0 8px}
+.settings-panel.open{max-height:800px}
+.settings-inner{padding:12px 14px;background:var(--card);border-radius:var(--radius);border:1px solid rgba(255,255,255,0.04)}
+.setting-row{display:flex;align-items:center;justify-content:space-between;padding:10px 0;
+  border-bottom:1px solid rgba(255,255,255,0.04)}
+.setting-row:last-child{border-bottom:none}
+.setting-label{font-size:13px;font-weight:600;color:var(--text2);flex:1}
+.setting-label small{display:block;font-weight:400;font-size:11px;color:var(--text3);margin-top:2px}
+.setting-control{display:flex;align-items:center;gap:6px}
+.setting-control input[type=number]{width:52px;padding:6px 8px;background:var(--card2);border:1px solid rgba(255,255,255,0.06);
+  border-radius:8px;color:var(--text);font-size:14px;font-weight:600;text-align:center;
+  -moz-appearance:textfield}
+.setting-control input[type=number]::-webkit-inner-spin-button{-webkit-appearance:none}
+.setting-control select{padding:6px 10px;background:var(--card2);border:1px solid rgba(255,255,255,0.06);
+  border-radius:8px;color:var(--text);font-size:13px;font-weight:600;-webkit-appearance:none;appearance:none;
+  background-image:url("data:image/svg+xml,%3Csvg width='10' height='6' viewBox='0 0 10 6' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%23a89a8e' fill='none' stroke-width='1.5'/%3E%3C/svg%3E");
+  background-repeat:no-repeat;background-position:right 8px center;padding-right:24px}
+.setting-control .btn-pm{width:28px;height:28px;border-radius:8px;background:var(--card2);border:1px solid rgba(255,255,255,0.06);
+  color:var(--text);font-size:16px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;
+  transition:background .15s}
+.setting-control .btn-pm:active{background:var(--maroon-dim)}
 
 /* ===== FINAL REVEAL ===== */
 .reveal-role{display:flex;align-items:center;gap:10px;padding:12px 16px;border-radius:10px;
-  margin-bottom:8px;background:var(--card2)}
+  margin-bottom:8px;background:var(--card2);border:1px solid rgba(255,255,255,0.03);animation:slideIn .3s}
 .reveal-role .rname{flex:1;font-weight:600}
-.reveal-role .rtag{padding:4px 12px;border-radius:20px;font-size:12px;font-weight:700}
-.reveal-role .rtag.witness{background:rgba(76,175,80,0.2);color:var(--green)}
-.reveal-role .rtag.suspect{background:rgba(229,57,53,0.2);color:var(--red)}
-.reveal-role .rtag.detective{background:rgba(66,165,245,0.2);color:var(--blue)}
-.reveal-role .rtag.judge{background:rgba(212,168,67,0.2);color:var(--gold)}
+.reveal-role .rtag{padding:4px 12px;border-radius:20px;font-size:12px;font-weight:700;letter-spacing:0.5px}
+.reveal-role .rtag.witness{background:rgba(90,158,111,0.15);color:var(--green)}
+.reveal-role .rtag.suspect{background:rgba(168,50,50,0.15);color:var(--red)}
+.reveal-role .rtag.detective{background:rgba(107,141,181,0.15);color:var(--blue)}
+.reveal-role .rtag.judge{background:rgba(201,168,76,0.15);color:var(--gold)}
 
 /* ===== WAITING ===== */
 .waiting{text-align:center;color:var(--text2);padding:30px 0}
@@ -152,12 +222,12 @@ input::placeholder{color:var(--text3)}
 /* ===== TOAST ===== */
 #toast-container{position:fixed;top:16px;left:50%;transform:translateX(-50%);z-index:1000;
   display:flex;flex-direction:column;gap:8px;pointer-events:none;max-width:380px;width:90%}
-.toast{padding:12px 18px;border-radius:10px;font-size:14px;font-weight:600;text-align:center;
-  animation:toastIn .3s;pointer-events:auto;background:var(--card);border:1px solid var(--text3);
-  box-shadow:0 4px 20px rgba(0,0,0,0.5)}
-.toast.success{border-color:var(--green);color:var(--green)}
-.toast.error{border-color:var(--red);color:var(--red)}
-.toast.info{border-color:var(--blue);color:var(--blue)}
+.toast{padding:12px 18px;border-radius:12px;font-size:14px;font-weight:600;text-align:center;
+  animation:toastIn .3s;pointer-events:auto;background:rgba(34,20,24,0.95);border:1px solid rgba(255,255,255,0.06);
+  box-shadow:0 8px 32px rgba(0,0,0,0.5);backdrop-filter:blur(8px)}
+.toast.success{border-color:rgba(90,158,111,0.3);color:var(--green)}
+.toast.error{border-color:rgba(168,50,50,0.3);color:var(--red)}
+.toast.info{border-color:rgba(107,141,181,0.3);color:var(--blue)}
 
 /* ===== SPACER ===== */
 .spacer{flex:1}
@@ -170,6 +240,16 @@ input::placeholder{color:var(--text3)}
 @keyframes toastIn{0%{transform:translateY(-20px);opacity:0}100%{transform:translateY(0);opacity:1}}
 @keyframes pulse{0%,100%{opacity:1}50%{opacity:0.5}}
 .pulse{animation:pulse 1.5s infinite}
+@keyframes resultReveal{0%{transform:scale(0.85);opacity:0}100%{transform:scale(1);opacity:1}}
+@keyframes glowDrift{0%{transform:translate(0,0) scale(1)}100%{transform:translate(60px,40px) scale(1.1)}}
+@keyframes floatUp{
+  0%{transform:translateY(0) scale(0);opacity:0}
+  10%{opacity:0.6;transform:translateY(-8vh) scale(1)}
+  80%{opacity:0.15}
+  100%{transform:translateY(-100vh) scale(0.3);opacity:0}
+}
+@keyframes urgentPulse{0%,100%{border-color:rgba(168,50,50,0.05)}50%{border-color:rgba(168,50,50,0.25)}}
+@keyframes logoPulse{0%,100%{filter:drop-shadow(0 0 20px rgba(122,32,48,0.2))}50%{filter:drop-shadow(0 0 35px rgba(122,32,48,0.4))}}
 
 /* ===== SCROLL ===== */
 .screen::-webkit-scrollbar{width:4px}
@@ -177,38 +257,40 @@ input::placeholder{color:var(--text3)}
 
 /* ===== LOGO ===== */
 .logo{margin:40px 0 16px;text-align:center}
-.logo-icon{font-size:64px;display:block;margin-bottom:8px}
+.logo-icon{font-size:72px;display:block;margin-bottom:12px;
+  filter:drop-shadow(0 0 24px rgba(122,32,48,0.25));animation:logoPulse 4s ease-in-out infinite}
 
 /* ===== CONNECTION STATUS ===== */
 .conn-status{display:inline-flex;align-items:center;gap:6px;font-size:12px;color:var(--text3);margin:4px 0}
-.conn-dot{width:8px;height:8px;border-radius:50%;background:var(--green)}
+.conn-dot{width:8px;height:8px;border-radius:50%;background:var(--green);box-shadow:0 0 6px rgba(90,158,111,0.35)}
 .conn-dot.off{background:var(--red)}
 
 /* ===== OVERLAY ===== */
-.overlay{position:fixed;inset:0;background:rgba(15,15,26,0.92);display:flex;align-items:center;justify-content:center;
-  z-index:900;padding:20px}
+.overlay{position:fixed;inset:0;background:rgba(12,6,8,0.92);display:flex;align-items:center;justify-content:center;
+  z-index:900;padding:20px;backdrop-filter:blur(4px)}
 .overlay .card{max-width:360px;width:100%;text-align:center}
 </style>
 </head>
 <body>
+
+<!-- Atmosphere -->
+<div id="atmosphere">
+  <div class="ambient-glow g1"></div>
+  <div class="ambient-glow g2"></div>
+  <div class="ambient-glow g3"></div>
+</div>
+<div id="vignette"></div>
+<div id="urgent-border"></div>
+
 <div id="app">
+<div id="lang-btn" onclick="toggleLang()" style="position:fixed;top:12px;right:12px;z-index:999;padding:6px 14px;border-radius:20px;background:var(--card2);border:1px solid rgba(255,255,255,0.08);color:var(--gold);font-size:13px;font-weight:700;cursor:pointer;user-select:none;transition:all .2s;letter-spacing:0">عربي</div>
 
 <!-- ===== SCREEN: MAIN MENU ===== -->
 <div class="screen active" id="s-menu">
   <div class="spacer"></div>
   <div class="logo">
     <span class="logo-icon">&#128373;&#65039;</span>
-    <h1>THE HIDDEN WORD</h1>
-    <p class="subtitle">A social deduction mystery game<br>4-10 players &bull; each on their own phone</p>
-  </div>
-  <div class="gap2"></div>
-  <div class="card card-glow" style="text-align:center">
-    <p style="font-size:14px;color:var(--text2);line-height:1.7">
-      A crime has been committed. The <b style="color:var(--green)">Witness</b> knows everything.
-      <b style="color:var(--blue)">Detectives</b> get subtle clues.
-      The <b style="color:var(--red)">Suspect</b> bluffs their way through.
-      The <b style="color:var(--gold)">Judge</b> makes the final call.
-    </p>
+    <h1>DETECTIVES</h1>
   </div>
   <div class="gap2"></div>
   <button class="btn btn-gold" onclick="showScreen('s-create')">Create Game</button>
@@ -225,22 +307,22 @@ input::placeholder{color:var(--text3)}
   <h2>How to Play</h2>
   <div class="gap"></div>
   <div class="card" style="line-height:1.8;font-size:14px;color:var(--text2)">
-    <p><b style="color:var(--gold)">Setup:</b> One player creates a game and shares the room code. Others join on their phones.</p>
+    <p><b style="color:var(--gold)">Setup:</b> One player creates a game and shares the 4-letter room code. Everyone else joins on their own device.</p>
     <div class="gap"></div>
-    <p><b style="color:var(--blue)">Stage 1 &mdash; Location:</b> A 3&times;3 word grid appears. Detectives share their clues. Everyone discusses. The Judge picks the location.</p>
-    <div class="gap"></div>
-    <p><b style="color:var(--red)">Stage 2 &mdash; Weapon:</b> New grid, new clues. Same flow. Judge picks the weapon.</p>
-    <div class="gap"></div>
-    <p><b style="color:var(--purple)">Stage 3 &mdash; Suspect:</b> Players discuss who the Suspect is. Judge picks a player. Then Suspects guess the Witness.</p>
+    <p><b style="color:var(--text)">Roles are dealt secretly:</b></p>
+    <p>&#9878;&#65039; <b>Judge</b> &mdash; No info. Runs the investigation. Makes the final call on every vote.</p>
+    <p>&#128065;&#65039; <b>Witness</b> &mdash; Knows the crime location and murder weapon. Must guide the team without being obvious.</p>
+    <p>&#128270; <b>Detective</b> &mdash; Gets one subtle clue per round. Shares it aloud and helps the Judge piece things together.</p>
+    <p>&#128308; <b>Suspect</b> &mdash; Also knows the location and weapon. Pretends to be a Detective and tries to mislead everyone.</p>
     <div class="gap2"></div>
-    <p><b style="color:var(--green)">Team Wins:</b> Both words correct AND Witness not exposed.</p>
-    <p><b style="color:var(--red)">Suspects Win:</b> Wrong guess OR Witness identified.</p>
+    <p><b style="color:var(--blue)">Round 1 &mdash; Location:</b> A grid of locations appears. Everyone reads silently, then discusses openly. Detectives share clues, Suspects bluff. The Judge picks the crime scene.</p>
+    <div class="gap"></div>
+    <p><b style="color:var(--red)">Round 2 &mdash; Weapon:</b> A new grid of weapons. Same flow &mdash; clues, discussion, Judge decides. A wrong pick ends the game immediately.</p>
+    <div class="gap"></div>
+    <p><b style="color:var(--purple)">Round 3 &mdash; Whodunit:</b> The Judge picks who they think the Suspect is. Then each Suspect secretly guesses who the Witness is.</p>
     <div class="gap2"></div>
-    <p><b style="color:var(--text)">Roles:</b></p>
-    <p>&#9878;&#65039; <b>Judge</b> &mdash; No info. Listens and makes final picks.</p>
-    <p>&#128065;&#65039; <b>Witness</b> &mdash; Knows both words. Helps subtly.</p>
-    <p>&#128270; <b>Detective</b> &mdash; Gets a subtle clue each round. Shares and deduces.</p>
-    <p>&#128308; <b>Suspect</b> &mdash; No info. Pretends to be a Detective and misleads.</p>
+    <p><b style="color:var(--green)">Team Wins:</b> Judge gets both words right AND the Witness stays hidden.</p>
+    <p><b style="color:var(--red)">Suspects Win:</b> Judge picks a wrong word OR a Suspect correctly identifies the Witness.</p>
   </div>
   <div class="gap2"></div>
   <button class="btn btn-outline" onclick="showScreen('s-menu')">Back</button>
@@ -294,6 +376,84 @@ input::placeholder{color:var(--text3)}
   <h3 id="lobby-count">Players (0/10)</h3>
   <div class="gap"></div>
   <div id="lobby-players"></div>
+
+  <!-- Host Settings (host only) -->
+  <div id="host-settings-wrap" style="display:none">
+    <div class="settings-toggle" onclick="toggleSettings()">
+      <span>&#9881;&#65039; Game Settings</span>
+      <span class="arrow" id="settings-arrow">&#9660;</span>
+    </div>
+    <div class="settings-panel" id="settings-panel">
+      <div class="settings-inner">
+        <div class="setting-row">
+          <div class="setting-label">Min Players<small>Minimum to start</small></div>
+          <div class="setting-control">
+            <button class="btn-pm" onclick="adjSetting('minPlayers',-1)">-</button>
+            <input type="number" id="set-minPlayers" value="4" min="2" max="10" onchange="onSettingChange()">
+            <button class="btn-pm" onclick="adjSetting('minPlayers',1)">+</button>
+          </div>
+        </div>
+        <div class="setting-row">
+          <div class="setting-label">Max Players<small>Room capacity</small></div>
+          <div class="setting-control">
+            <button class="btn-pm" onclick="adjSetting('maxPlayers',-1)">-</button>
+            <input type="number" id="set-maxPlayers" value="10" min="2" max="20" onchange="onSettingChange()">
+            <button class="btn-pm" onclick="adjSetting('maxPlayers',1)">+</button>
+          </div>
+        </div>
+        <div class="setting-row">
+          <div class="setting-label">Suspects<small>Auto scales with players</small></div>
+          <div class="setting-control">
+            <select id="set-suspects" onchange="onSettingChange()">
+              <option value="auto">Auto</option>
+              <option value="1">1</option>
+              <option value="2">2</option>
+              <option value="3">3</option>
+              <option value="4">4</option>
+            </select>
+          </div>
+        </div>
+        <div class="setting-row">
+          <div class="setting-label">Grid Size<small>Words per grid</small></div>
+          <div class="setting-control">
+            <select id="set-gridSize" onchange="onSettingChange()">
+              <option value="4">2 &times; 2 (4)</option>
+              <option value="9" selected>3 &times; 3 (9)</option>
+              <option value="16">4 &times; 4 (16)</option>
+            </select>
+          </div>
+        </div>
+        <div class="setting-row">
+          <div class="setting-label">Prep Time<small>Silent reading phase</small></div>
+          <div class="setting-control">
+            <button class="btn-pm" onclick="adjSetting('prepTime',-5)">-</button>
+            <input type="number" id="set-prepTime" value="30" min="10" max="120" step="5" onchange="onSettingChange()">
+            <button class="btn-pm" onclick="adjSetting('prepTime',5)">+</button>
+            <span style="font-size:12px;color:var(--text3)">s</span>
+          </div>
+        </div>
+        <div class="setting-row">
+          <div class="setting-label">Discussion Time<small>Team discussion phase</small></div>
+          <div class="setting-control">
+            <button class="btn-pm" onclick="adjSetting('discussTime',-10)">-</button>
+            <input type="number" id="set-discussTime" value="90" min="30" max="300" step="10" onchange="onSettingChange()">
+            <button class="btn-pm" onclick="adjSetting('discussTime',10)">+</button>
+            <span style="font-size:12px;color:var(--text3)">s</span>
+          </div>
+        </div>
+        <div class="setting-row">
+          <div class="setting-label">Judge Time<small>Decision timer</small></div>
+          <div class="setting-control">
+            <button class="btn-pm" onclick="adjSetting('judgeTime',-5)">-</button>
+            <input type="number" id="set-judgeTime" value="15" min="10" max="60" step="5" onchange="onSettingChange()">
+            <button class="btn-pm" onclick="adjSetting('judgeTime',5)">+</button>
+            <span style="font-size:12px;color:var(--text3)">s</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <div class="spacer"></div>
   <div id="lobby-role-preview" class="card" style="font-size:13px;color:var(--text2);display:none;text-align:center;margin-bottom:12px"></div>
   <button class="btn btn-gold" id="btn-start-game" style="display:none" onclick="hostStartGame()">Start Game</button>
@@ -444,95 +604,96 @@ const WEAPONS = [
 ];
 
 // ======================== HINT BANK ========================
+// Hints should be subtle — evocative but not dead giveaways
 const HINTS = {
   // Locations
-  'Rooftop':['elevated','windy','urban view','open air'],
-  'Casino':['gambling','neon lights','card games','chips'],
-  'Kitchen':['cooking','utensils','stove','ingredients'],
-  'Subway':['underground','rails','tunnels','commuters'],
-  'Library':['books','quiet','shelves','reading'],
-  'Hospital':['medical','sterile','white coats','beeping'],
-  'Beach':['sandy','waves','salty','sunny'],
-  'Airport':['flights','luggage','runways','boarding'],
-  'Museum':['artifacts','exhibits','guided tours','historical'],
-  'Warehouse':['storage','crates','industrial','spacious'],
-  'Mansion':['grand','wealthy','chandeliers','estate'],
-  'Garage':['cars','tools','oil stains','concrete'],
-  'School':['students','desks','chalk','bells'],
-  'Theater':['stage','curtains','performance','spotlights'],
-  'Docks':['water','boats','cargo','seagulls'],
-  'Prison':['cells','guards','bars','locked'],
-  'Church':['worship','bells','stained glass','pews'],
-  'Penthouse':['luxury','top floor','skyline','elegant'],
-  'Forest':['trees','wildlife','leaves','trails'],
-  'Market':['vendors','fresh produce','bargaining','stalls'],
-  'Lab':['experiments','chemicals','microscope','research'],
-  'Courtroom':['trial','jury','gavel','testimony'],
-  'Hotel':['rooms','lobby','check-in','guests'],
-  'Stadium':['sports','crowds','cheering','scoreboard'],
-  'Cemetery':['graves','stones','memorial','flowers'],
-  'Lighthouse':['coastal','beacon','tower','isolated'],
-  'Bunker':['underground','reinforced','shelter','concrete'],
-  'Yacht':['luxury','ocean','sailing','anchor'],
-  'Train Station':['platform','tracks','departures','tickets'],
-  'Nightclub':['dancing','loud music','dark','DJ booth'],
-  'Office':['desks','computers','meetings','cubicles'],
-  'Parking Lot':['cars','concrete','spaces','barriers'],
-  'Bank':['money','vault','tellers','security'],
-  'Restaurant':['dining','menu','waiters','cuisine'],
-  'Gym':['weights','exercise','sweat','treadmill'],
-  'Farm':['animals','crops','rural','barn'],
-  'Aquarium':['fish','glass tanks','marine','underwater'],
-  'Observatory':['stars','telescope','dome','planets'],
-  'Mall':['shopping','stores','escalators','bags'],
-  'Spa':['relaxation','massage','steam','towels'],
+  'Rooftop':['vertigo','pigeons gather','above it all','antennas'],
+  'Casino':['lucky sevens','velvet tables','high roller','all in'],
+  'Kitchen':['something burning','hot oil','cutting board','timer ding'],
+  'Subway':['rumbling below','yellow line','crowded platform','echoing'],
+  'Library':['whisper only','dusty spines','card catalog','overdue'],
+  'Hospital':['antiseptic smell','long hallway','visiting hours','pale green walls'],
+  'Beach':['tide coming in','sunscreen','footprints vanish','driftwood'],
+  'Airport':['final call','overhead announcements','time zones','conveyor belt'],
+  'Museum':['do not touch','velvet rope','ancient things','guided group'],
+  'Warehouse':['echo in the dark','loading bay','pallets','high ceiling'],
+  'Mansion':['wrought iron gate','many rooms','portrait hall','old money'],
+  'Garage':['oil puddle','concrete floor','cluttered walls','motor smell'],
+  'School':['locker slam','hallway pass','pop quiz','recess bell'],
+  'Theater':['intermission','velvet seats','standing ovation','dimming lights'],
+  'Docks':['salt air','creaking wood','rope coils','tide schedule'],
+  'Prison':['headcount','concrete yard','orange jumpsuit','no windows'],
+  'Church':['echoing hymns','quiet reverence','colored light','Sunday morning'],
+  'Penthouse':['private elevator','city below','floor-to-ceiling','corner unit'],
+  'Forest':['snapping twigs','canopy','moss-covered','birdsong'],
+  'Market':['haggling','early morning','colorful awnings','cash only'],
+  'Lab':['goggles required','Bunsen burner','hypothesis','safety shower'],
+  'Courtroom':['all rise','sworn in','objection','deliberation'],
+  'Hotel':['room service','minibar','wake-up call','checkout'],
+  'Stadium':['the wave','halftime','nosebleed seats','season pass'],
+  'Cemetery':['iron fence','quiet rows','wilted petals','old dates'],
+  'Lighthouse':['foghorn','spiral stairs','rocky shore','keeper'],
+  'Bunker':['thick walls','provisions','sealed door','no signal'],
+  'Yacht':['port side','seasick','mahogany deck','horizon line'],
+  'Train Station':['announcement board','last stop','whistling','track 9'],
+  'Nightclub':['strobe lights','bass drop','velvet rope','2 AM'],
+  'Office':['fluorescent hum','coffee machine','9 to 5','swivel chair'],
+  'Parking Lot':['yellow lines','ticket stub','concrete pillars','level B2'],
+  'Bank':['marble floor','waiting line','bulletproof glass','safety deposit'],
+  'Restaurant':['reservation','specials board','cloth napkins','candlelit'],
+  'Gym':['rubber mats','mirror wall','towel rack','protein shake'],
+  'Farm':['sunrise chores','muddy boots','red structure','roosters'],
+  'Aquarium':['blue glow','tunnel walkway','feeding time','bubbling'],
+  'Observatory':['clear night','rotating roof','high altitude','red light only'],
+  'Mall':['food court','window displays','holiday rush','gift wrapping'],
+  'Spa':['cucumber water','dim lighting','soft robes','hot stones'],
   // Weapons
-  'Knife':['sharp','metallic','blade','kitchen tool'],
-  'Poison':['liquid','chemical','tasteless','vial'],
-  'Gun':['loud','trigger','barrel','ranged'],
-  'Rope':['fiber','coiled','knotted','binding'],
-  'Wrench':['heavy metal','mechanical','twisting','toolbox'],
-  'Candlestick':['brass','wax','old-fashioned','heavy base'],
-  'Axe':['chopping','wooden handle','splitting','lumberjack'],
-  'Crowbar':['prying','iron','leverage','bent'],
-  'Scissors':['two blades','cutting','handles','snipping'],
-  'Hammer':['pounding','nails','heavy head','construction'],
-  'Syringe':['needle','injection','medical','dose'],
-  'Brick':['rough','heavy','rectangular','masonry'],
-  'Pipe':['hollow','cylindrical','plumbing','metal tube'],
-  'Crossbow':['bolts','silent','aimed','medieval'],
-  'Chainsaw':['motor','teeth','noisy','vibrating'],
-  'Shovel':['digging','dirt','garden','long handle'],
-  'Ice Pick':['pointed','thin','cocktails','piercing'],
-  'Bat':['swinging','wooden','sports','grip'],
-  'Dagger':['short blade','double-edged','concealed','ancient'],
-  'Grenade':['explosive','pin','thrown','military'],
-  'Taser':['electric','stun','voltage','prongs'],
-  'Machete':['jungle','long blade','tropical','clearing'],
-  'Mallet':['wooden','flat head','croquet','soft blows'],
-  'Scalpel':['surgical','precision','thin','operating room'],
-  'Drill':['rotating','bits','power tool','holes'],
-  'Trophy':['decorative','award','heavy','display case'],
-  'Frying Pan':['cooking','round','cast iron','non-stick'],
-  'Whip':['cracking','leather','lashing','flexible'],
-  'Pitchfork':['prongs','farming','hay','pointed'],
-  'Hatchet':['small axe','camping','compact','one-hand'],
-  'Spear':['thrown','pointed tip','primitive','long reach'],
-  'Saw':['teeth','back and forth','sawdust','wood'],
-  'Torch':['fire','burning','light source','held'],
-  'Bolt Cutter':['jaws','cutting locks','industrial','heavy'],
-  'Chain':['links','metal','rattling','heavy'],
-  'Stiletto':['thin blade','Italian','elegant','concealed'],
-  'Blowdart':['tube','breath-powered','silent','tribal'],
-  'Garrote':['wire','thin','silent','from behind'],
-  'Flare Gun':['bright','signaling','emergency','colorful'],
-  'Sledgehammer':['massive','two-handed','demolition','crushing']
+  'Knife':['dinner table','folding','serrated edge','pocket-sized'],
+  'Poison':['odorless','drop by drop','bitter aftertaste','slow-acting'],
+  'Gun':['holster','safety off','smoking','six chambers'],
+  'Rope':['rough hands','sailor knot','fraying','taut'],
+  'Wrench':['turning motion','pipe fitting','rust stains','adjustable'],
+  'Candlestick':['dripping wax','flickering','dinner party','brass weight'],
+  'Axe':['splitting sound','wood chips','chopping block','heavy swing'],
+  'Crowbar':['leverage','pry open','rusty red','curved end'],
+  'Scissors':['left-handed','paper cuts','snip sound','two loops'],
+  'Hammer':['bent nails','claw end','thumb injury','toolbelt'],
+  'Syringe':['small dose','plunger','sharp tip','measured marks'],
+  'Brick':['crumbling mortar','terracotta','heavy throw','rough edges'],
+  'Pipe':['clanking','threaded end','under the sink','lead'],
+  'Crossbow':['string tension','scope','silent shot','quiver'],
+  'Chainsaw':['pull cord','two-stroke','vibration','ear protection'],
+  'Shovel':['blisters','pointed tip','fresh dirt','deep hole'],
+  'Ice Pick':['mountain gear','narrow point','clear block','one spike'],
+  'Bat':['home run','pine tar','cracking sound','Louisville'],
+  'Dagger':['sheath','ornamental','cross guard','close quarters'],
+  'Grenade':['fragmentation','count to three','olive drab','pull ring'],
+  'Taser':['clicking sound','two prongs','compliance','battery pack'],
+  'Machete':['undergrowth','broad blade','humid climate','rusted'],
+  'Mallet':['flat face','croquet lawn','rubber version','gentle force'],
+  'Scalpel':['number 10 blade','steady hand','sterile tray','precise cut'],
+  'Drill':['chuck key','spiral bit','cordless','pilot hole'],
+  'Trophy':['engraved plate','shelf display','golden figure','first place'],
+  'Frying Pan':['sizzling','black residue','handle hot','seasoned'],
+  'Whip':['braided','snap sound','cowhide','long reach'],
+  'Pitchfork':['three tines','hay bale','barn tool','wooden shaft'],
+  'Hatchet':['belt loop','kindling','hand-sized','tomahawk'],
+  'Spear':['shaft','thrown far','flint tip','ancient hunt'],
+  'Saw':['push-pull','jagged teeth','fine dust','straight cut'],
+  'Torch':['flickering','wrapped cloth','night march','pine resin'],
+  'Bolt Cutter':['snapping jaws','padlock','long handles','hardened steel'],
+  'Chain':['rattling','linked','anchor line','cold metal'],
+  'Stiletto':['needle-thin','spring-loaded','Italian craft','concealed'],
+  'Blowdart':['hollow reed','lung power','tiny projectile','jungle'],
+  'Garrote':['piano wire','from behind','thin line','silent'],
+  'Flare Gun':['red sky','distress','single shot','burning arc'],
+  'Sledgehammer':['two-handed grip','concrete dust','full swing','10 pounds']
 };
 
 function getHint(word) {
-  const hints = HINTS[word];
-  if (!hints) return 'mysterious';
-  return hints[Math.floor(Math.random() * hints.length)];
+  const bank = currentLang === 'ar' ? (HINTS_AR[word] || HINTS[word]) : HINTS[word];
+  if (!bank) return currentLang === 'ar' ? 'غامض' : 'mysterious';
+  return bank[Math.floor(Math.random() * bank.length)];
 }
 
 // ======================== CARD ART GENERATION ========================
@@ -582,198 +743,474 @@ const CARD_ART = {
   'Flare Gun':['🎆','#1a0a10','#f04060'],'Sledgehammer':['⚒️','#1a1a1a','#808080'],
 };
 
-// Seeded PRNG (mulberry32)
-function mulberry32(a) {
-  return function() {
-    a |= 0; a = a + 0x6D2B79F5 | 0;
-    var t = Math.imul(a ^ a >>> 15, 1 | a);
-    t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t;
-    return ((t ^ t >>> 14) >>> 0) / 4294967296;
-  };
-}
-function hashStr(s) {
-  let h = 5381;
-  for (let i = 0; i < s.length; i++) h = ((h << 5) + h + s.charCodeAt(i)) | 0;
-  return h >>> 0;
+// Get icon data for a word (emoji + accent color)
+function getCardArt(word) {
+  return CARD_ART[word] || ['❓','#1a1a1a','#808080'];
 }
 
-const _artCanvas = document.createElement('canvas');
-_artCanvas.width = 200; _artCanvas.height = 200;
-
-function generateImage(word, salt) {
-  const W = 200, H = 200;
-  const ctx = _artCanvas.getContext('2d');
-  const rng = mulberry32(hashStr(word + ':' + salt));
-  const art = CARD_ART[word] || ['❓','#1a1a1a','#808080'];
-  const [emoji, bgDark, bgAccent] = art;
-
-  // Clear
-  ctx.globalAlpha = 1;
-  ctx.clearRect(0, 0, W, H);
-
-  // Moody radial background
-  const cx = W/2 + (rng()-0.5)*50, cy = H/2 + (rng()-0.5)*50;
-  const bg = ctx.createRadialGradient(cx, cy, 15, W/2, H/2, W*0.85);
-  bg.addColorStop(0, bgAccent);
-  bg.addColorStop(0.55, bgDark);
-  bg.addColorStop(1, '#050508');
-  ctx.fillStyle = bg;
-  ctx.fillRect(0, 0, W, H);
-
-  // Atmospheric particles (bokeh-like dots)
-  for (let i = 0; i < 12 + Math.floor(rng()*18); i++) {
-    ctx.globalAlpha = 0.04 + rng()*0.12;
-    ctx.fillStyle = bgAccent;
-    ctx.beginPath();
-    ctx.arc(rng()*W, rng()*H, 2 + rng()*18, 0, Math.PI*2);
-    ctx.fill();
-  }
-
-  // Soft glow behind emoji
-  ctx.globalAlpha = 0.3;
-  const glow = ctx.createRadialGradient(W/2, H/2-8, 8, W/2, H/2-8, 55);
-  glow.addColorStop(0, bgAccent);
-  glow.addColorStop(1, 'transparent');
-  ctx.fillStyle = glow;
-  ctx.fillRect(0, 0, W, H);
-
-  // Draw the emoji centered
-  ctx.globalAlpha = 1;
-  ctx.font = '80px "Segoe UI Emoji","Apple Color Emoji","Noto Color Emoji",sans-serif';
-  ctx.textAlign = 'center';
-  ctx.textBaseline = 'middle';
-  ctx.fillText(emoji, W/2, H/2 - 2);
-
-  // Vignette overlay
-  const vg = ctx.createRadialGradient(W/2, H/2, W*0.28, W/2, H/2, W*0.72);
-  vg.addColorStop(0, 'transparent');
-  vg.addColorStop(1, 'rgba(0,0,0,0.45)');
-  ctx.fillStyle = vg;
-  ctx.fillRect(0, 0, W, H);
-
-  return _artCanvas.toDataURL('image/png');
-}
-
-// ======================== IMAGE LOADING ========================
-// Map words to better Wikipedia article names for clear photos
-const WIKI_OVERRIDE = {
+// ======================== ARABIC WORD & HINT TRANSLATIONS ========================
+const WORDS_AR = {
   // Locations
-  'Mall':'Shopping_center','Lab':'Laboratory','Gym':'Gym',
-  'Spa':'Health_spa','Docks':'Wharf','Penthouse':'Penthouse_apartment',
-  'Bunker':'Bunker','Parking Lot':'Parking_lot','Train Station':'Railway_station',
-  'Rooftop':'Roof','Nightclub':'Nightclub','Courtroom':'Courtroom',
-  'Stadium':'Stadium','Lighthouse':'Lighthouse','Observatory':'Observatory',
-  'Cemetery':'Cemetery','Warehouse':'Warehouse',
+  'Rooftop':'سطح المبنى','Casino':'كازينو','Kitchen':'مطبخ','Subway':'مترو الأنفاق',
+  'Library':'مكتبة','Hospital':'مستشفى','Beach':'شاطئ','Airport':'مطار',
+  'Museum':'متحف','Warehouse':'مستودع','Mansion':'قصر','Garage':'مرآب',
+  'School':'مدرسة','Theater':'مسرح','Docks':'أرصفة الميناء','Prison':'سجن',
+  'Church':'كنيسة','Penthouse':'شقة علوية','Forest':'غابة','Market':'سوق',
+  'Lab':'مختبر','Courtroom':'قاعة المحكمة','Hotel':'فندق','Stadium':'ملعب',
+  'Cemetery':'مقبرة','Lighthouse':'منارة','Bunker':'ملجأ','Yacht':'يخت',
+  'Train Station':'محطة القطار','Nightclub':'ملهى ليلي','Office':'مكتب',
+  'Parking Lot':'موقف سيارات','Bank':'بنك','Restaurant':'مطعم','Gym':'صالة رياضية',
+  'Farm':'مزرعة','Aquarium':'حوض أسماك','Observatory':'مرصد فلكي','Mall':'مركز تجاري','Spa':'منتجع صحي',
   // Weapons
-  'Bat':'Baseball_bat','Pipe':'Lead_pipe','Ice Pick':'Ice_pick',
-  'Frying Pan':'Frying_pan','Bolt Cutter':'Bolt_cutter','Flare Gun':'Flare_gun',
-  'Candlestick':'Candlestick','Stiletto':'Stiletto_(knife)',
-  'Garrote':'Garrote','Blowdart':'Blowgun','Mallet':'Mallet',
-  'Sledgehammer':'Sledgehammer','Machete':'Machete',
+  'Knife':'سكين','Poison':'سُم','Gun':'مسدس','Rope':'حبل',
+  'Wrench':'مفتاح ربط','Candlestick':'شمعدان','Axe':'فأس','Crowbar':'عتلة',
+  'Scissors':'مقص','Hammer':'مطرقة','Syringe':'حقنة','Brick':'طوبة',
+  'Pipe':'أنبوب','Crossbow':'قوس نشاب','Chainsaw':'منشار كهربائي','Shovel':'مجرفة',
+  'Ice Pick':'معول ثلج','Bat':'مضرب','Dagger':'خنجر','Grenade':'قنبلة يدوية',
+  'Taser':'صاعق كهربائي','Machete':'ساطور','Mallet':'مطرقة خشبية','Scalpel':'مشرط',
+  'Drill':'مثقاب','Trophy':'كأس','Frying Pan':'مقلاة','Whip':'سوط',
+  'Pitchfork':'شوكة مزرعة','Hatchet':'بلطة','Spear':'رمح','Saw':'منشار',
+  'Torch':'مشعل','Bolt Cutter':'قاطع أقفال','Chain':'سلسلة','Stiletto':'خنجر رفيع',
+  'Blowdart':'نفاثة سهام','Garrote':'سلك خنق','Flare Gun':'مسدس إشارة','Sledgehammer':'مطرقة ثقيلة'
 };
 
-// Extra Commons search terms for words that need disambiguation
-const COMMONS_SEARCH_TERM = {
-  'Chain':'metal chain','Torch':'fire torch','Pipe':'lead pipe weapon',
-  'Bat':'baseball bat','Mall':'shopping mall interior',
-  'Hospital':'hospital building','Spa':'spa massage',
-  'Gym':'gymnasium exercise','Bunker':'military bunker',
-  'Parking Lot':'parking lot cars','Office':'office room desk',
-  'Penthouse':'penthouse apartment luxury',
+const HINTS_AR = {
+  // Locations
+  'Rooftop':['دوار المرتفعات','حمام يتجمع','فوق كل شيء','هوائيات'],
+  'Casino':['سبعات محظوظة','طاولات مخملية','رهان عالي','الكل داخل'],
+  'Kitchen':['شيء يحترق','زيت ساخن','لوح تقطيع','جرس المؤقت'],
+  'Subway':['هدير تحت الأرض','خط أصفر','رصيف مزدحم','صدى'],
+  'Library':['همس فقط','أغلفة مغبرة','فهرس بطاقات','متأخر الإعادة'],
+  'Hospital':['رائحة معقم','ممر طويل','ساعات زيارة','جدران خضراء باهتة'],
+  'Beach':['المد قادم','واقي شمس','آثار أقدام تختفي','خشب طافٍ'],
+  'Airport':['النداء الأخير','إعلانات علوية','مناطق زمنية','حزام ناقل'],
+  'Museum':['ممنوع اللمس','حبل مخملي','أشياء قديمة','مجموعة بمرشد'],
+  'Warehouse':['صدى في الظلام','رصيف تحميل','منصات نقل','سقف عالٍ'],
+  'Mansion':['بوابة حديد مزخرف','غرف كثيرة','رواق صور','ثروة قديمة'],
+  'Garage':['بقعة زيت','أرضية خرسانية','جدران مكدسة','رائحة محرك'],
+  'School':['صفق الخزانة','إذن مرور','اختبار مفاجئ','جرس الاستراحة'],
+  'Theater':['استراحة','مقاعد مخملية','تصفيق حار','أضواء خافتة'],
+  'Docks':['هواء مالح','خشب يصرّ','لفائف حبال','جدول المد'],
+  'Prison':['عد الرؤوس','ساحة خرسانية','بدلة برتقالية','بلا نوافذ'],
+  'Church':['ترانيم تتردد','هدوء وقار','ضوء ملون','صباح الأحد'],
+  'Penthouse':['مصعد خاص','المدينة في الأسفل','نوافذ من الأرض للسقف','وحدة زاوية'],
+  'Forest':['أغصان تتكسر','ظلال الأشجار','طحلب يغطي','زقزقة عصافير'],
+  'Market':['مساومة','الصباح الباكر','مظلات ملونة','نقداً فقط'],
+  'Lab':['نظارات واقية','موقد بنسن','فرضية','دش أمان'],
+  'Courtroom':['محكمة قائمة','أقسم','اعتراض','مداولة'],
+  'Hotel':['خدمة الغرف','ميني بار','مكالمة إيقاظ','تسجيل خروج'],
+  'Stadium':['موجة الجمهور','استراحة نصف الوقت','مقاعد بعيدة','اشتراك موسمي'],
+  'Cemetery':['سياج حديدي','صفوف هادئة','بتلات ذابلة','تواريخ قديمة'],
+  'Lighthouse':['صفارة ضباب','درج لولبي','شاطئ صخري','حارس'],
+  'Bunker':['جدران سميكة','مؤن','باب محكم','لا إشارة'],
+  'Yacht':['جانب الميناء','دوار البحر','سطح خشب الماهوغني','خط الأفق'],
+  'Train Station':['لوحة الإعلانات','المحطة الأخيرة','صفير','رصيف ٩'],
+  'Nightclub':['أضواء متقطعة','صوت جهير','حبل مخملي','الثانية صباحاً'],
+  'Office':['طنين فلورسنت','ماكينة قهوة','٩ إلى ٥','كرسي دوار'],
+  'Parking Lot':['خطوط صفراء','قسيمة','أعمدة خرسانية','الطابق ب٢'],
+  'Bank':['أرضية رخام','طابور انتظار','زجاج مضاد للرصاص','صندوق أمانات'],
+  'Restaurant':['حجز','لوحة العروض','مناديل قماش','إضاءة شموع'],
+  'Gym':['حصائر مطاطية','جدار مرايا','حامل مناشف','مشروب بروتين'],
+  'Farm':['أعمال الفجر','أحذية موحلة','مبنى أحمر','ديكة'],
+  'Aquarium':['وهج أزرق','نفق زجاجي','وقت التغذية','فقاعات'],
+  'Observatory':['ليلة صافية','سقف دوار','ارتفاع عالٍ','ضوء أحمر فقط'],
+  'Mall':['ساحة الطعام','واجهات عرض','اندفاع الأعياد','تغليف هدايا'],
+  'Spa':['ماء بالخيار','إضاءة خافتة','أرواب ناعمة','حجارة ساخنة'],
+  // Weapons
+  'Knife':['طاولة عشاء','قابل للطي','حافة مسننة','بحجم الجيب'],
+  'Poison':['عديم الرائحة','قطرة قطرة','مذاق مر','بطيء المفعول'],
+  'Gun':['حافظة','أمان معطل','يدخن','ست حجرات'],
+  'Rope':['أيدي خشنة','عقدة بحّار','يتآكل','مشدود'],
+  'Wrench':['حركة دوران','تركيب أنابيب','بقع صدأ','قابل للتعديل'],
+  'Candlestick':['شمع يقطر','وميض','حفل عشاء','ثقل نحاسي'],
+  'Axe':['صوت شق','رقائق خشب','قالب تقطيع','ضربة ثقيلة'],
+  'Crowbar':['رافعة','فتح بالقوة','أحمر صدئ','نهاية منحنية'],
+  'Scissors':['لليد اليسرى','جروح ورق','صوت قص','حلقتان'],
+  'Hammer':['مسامير معوجة','نهاية مخلب','إصابة إبهام','حزام أدوات'],
+  'Syringe':['جرعة صغيرة','مكبس','طرف حاد','علامات قياس'],
+  'Brick':['ملاط متفتت','طيني','رمية ثقيلة','حواف خشنة'],
+  'Pipe':['قعقعة','نهاية ملولبة','تحت الحوض','رصاصي'],
+  'Crossbow':['شد الوتر','منظار','طلقة صامتة','جعبة'],
+  'Chainsaw':['حبل سحب','ثنائي الأشواط','اهتزاز','حماية أذن'],
+  'Shovel':['فقاعات يد','طرف مدبب','تراب طازج','حفرة عميقة'],
+  'Ice Pick':['معدات تسلق','نقطة ضيقة','كتلة شفافة','شوكة واحدة'],
+  'Bat':['ضربة قوية','قطران الصنوبر','صوت تكسير','لويزفيل'],
+  'Dagger':['غمد','زخرفي','واقي متقاطع','قتال قريب'],
+  'Grenade':['شظايا','عد للثلاثة','أخضر زيتوني','حلقة سحب'],
+  'Taser':['صوت طقطقة','شوكتان','إخضاع','علبة بطارية'],
+  'Machete':['أدغال','نصل عريض','مناخ رطب','صدئ'],
+  'Mallet':['وجه مسطح','ملعب كروكيه','نسخة مطاطية','قوة لطيفة'],
+  'Scalpel':['شفرة رقم ١٠','يد ثابتة','صينية معقمة','قطع دقيق'],
+  'Drill':['مفتاح ظرف','لقمة حلزونية','لاسلكي','ثقب تجريبي'],
+  'Trophy':['لوحة محفورة','رف عرض','تمثال ذهبي','المركز الأول'],
+  'Frying Pan':['أزيز','بقايا سوداء','مقبض ساخن','مُتبّل'],
+  'Whip':['مضفر','صوت فرقعة','جلد بقر','مدى بعيد'],
+  'Pitchfork':['ثلاث شوكات','بالة قش','أداة حظيرة','عمود خشبي'],
+  'Hatchet':['حلقة حزام','إشعال','بحجم اليد','توماهوك'],
+  'Spear':['عمود','يُرمى بعيداً','رأس صوان','صيد قديم'],
+  'Saw':['ادفع واسحب','أسنان مسننة','غبار ناعم','قطع مستقيم'],
+  'Torch':['وميض','قماش ملفوف','مسيرة ليلية','راتنج صنوبر'],
+  'Bolt Cutter':['فكوك قاطعة','قفل','مقابض طويلة','فولاذ مقسّى'],
+  'Chain':['خشخشة','حلقات متصلة','خط مرساة','معدن بارد'],
+  'Stiletto':['رفيع كالإبرة','زنبركي','صناعة إيطالية','مخفي'],
+  'Blowdart':['قصبة مجوفة','قوة رئة','مقذوف صغير','أدغال'],
+  'Garrote':['سلك بيانو','من الخلف','خط رفيع','صامت'],
+  'Flare Gun':['سماء حمراء','استغاثة','طلقة واحدة','قوس مشتعل'],
+  'Sledgehammer':['قبضة بيدين','غبار خرسانة','أرجحة كاملة','١٠ أرطال']
 };
 
-// Load image from URL, center-crop to square, apply noir tint
-function loadCroppedImage(url) {
-  return new Promise((resolve) => {
-    const img = new Image();
-    img.crossOrigin = 'anonymous';
-    const timeout = setTimeout(() => resolve(null), 8000);
-    img.onload = () => {
-      clearTimeout(timeout);
-      try {
-        const c = document.createElement('canvas');
-        c.width = 200; c.height = 200;
-        const ctx = c.getContext('2d');
-        const scale = Math.max(200 / img.width, 200 / img.height);
-        const sw = 200 / scale, sh = 200 / scale;
-        const sx = (img.width - sw) / 2, sy = (img.height - sh) / 2;
-        ctx.drawImage(img, sx, sy, sw, sh, 0, 0, 200, 200);
-        ctx.fillStyle = 'rgba(8,8,18,0.25)';
-        ctx.fillRect(0, 0, 200, 200);
-        const vg = ctx.createRadialGradient(100, 100, 45, 100, 100, 140);
-        vg.addColorStop(0, 'transparent');
-        vg.addColorStop(1, 'rgba(0,0,0,0.5)');
-        ctx.fillStyle = vg;
-        ctx.fillRect(0, 0, 200, 200);
-        resolve(c.toDataURL('image/jpeg', 0.72));
-      } catch (e) { resolve(null); }
-    };
-    img.onerror = () => { clearTimeout(timeout); resolve(null); };
-    img.src = url;
-  });
+function tWord(w) { return currentLang === 'ar' ? (WORDS_AR[w] || w) : w; }
+
+// ======================== TRANSLATIONS ========================
+let currentLang = localStorage.getItem('det-lang') || 'en';
+
+const TR = {
+en: {
+  title:'DETECTIVES', createGame:'Create Game', joinGame:'Join Game', howToPlay:'How to Play', back:'Back',
+  createTitle:'Create Game', createSub:"You'll be the host", namePH:'Your name...', createRoom:'Create Room',
+  joinTitle:'Join Game', joinSub:'Enter the room code', codePH:'Room code (4 letters)', joinRoom:'Join Room',
+  roomCode:'Room Code', shareCode:'Share Code', playersOf:'Players', gameSettings:'\u2699\uFE0F Game Settings',
+  startGame:'Start Game', waitHost:'Waiting for host to start', leaveGame:'Leave Game',
+  sMinP:'Min Players', sMinPd:'Minimum to start', sMaxP:'Max Players', sMaxPd:'Room capacity',
+  sSus:'Suspects', sSusd:'Auto scales with players', sGrid:'Grid Size', sGridd:'Words per grid',
+  sPrep:'Prep Time', sPrepd:'Silent reading phase', sDisc:'Discussion Time', sDiscd:'Team discussion phase',
+  sJudge:'Judge Time', sJudged:'Decision timer', auto:'Auto',
+  yourRole:'Your Secret Role', tapReveal:'Tap to Reveal', ready:"I'm Ready", waitOthers:'Waiting for others',
+  waitPlayers:'Waiting for Players', everyoneConfirm:'Everyone needs to confirm their role...',
+  Judge:'Judge', Witness:'Witness', Detective:'Detective', Suspect:'Suspect',
+  judgeDesc:'You have no information.<br>Listen to discussions and make the final call.',
+  witnessDesc:"Guide your team subtly. Don't get exposed!",
+  detectiveDesc:"You'll receive clues each round.<br>Share and deduce with your team!",
+  suspectDesc:'You know the answers. Pretend to be a Detective and mislead everyone!',
+  judgeInfo:'\u2696\uFE0F You are the Judge \u2014 Listen and decide',
+  theWord:'The', locLabel:'Location', weapLabel:'Weapon', is:'is:',
+  clue:'Your clue:', knowAnswer:'You know the answer:',
+  s1Loc:'\uD83D\uDCCD Stage 1 \u2014 Location', s2Weap:'\uD83D\uDD2A Stage 2 \u2014 Weapon',
+  s3Sus:'\uD83D\uDD34 Stage 3 \u2014 Suspect',
+  readLoc:'Read the Location Grid', readWeap:'Read the Weapon Grid',
+  locDisc:'Location Discussion', weapDisc:'Weapon Discussion',
+  PREP:'PREPARATION', DISC:'DISCUSSION',
+  discHint:'Discuss openly. Detectives share clues. Suspects bluff!',
+  prepHint:'Read the words silently. Prepare your strategy.',
+  endDiscEarly:'End Discussion Early',
+  pickLoc:'Pick the Location', pickWeap:'Pick the Weapon', idSuspect:'Identify the Suspect',
+  makeChoice:'Make your choice', locPick:'Location Pick', weapPick:'Weapon Pick',
+  susId:'Suspect Identification', judgeChoosing:'Judge is choosing...',
+  decideOrLose:'DECIDE OR SUSPECTS WIN', waitJudge:"Waiting for Judge's decision",
+  confirmSel:'Confirm Selection',
+  correct:'Correct!', wrong:'Wrong!', judgePicked:'The Judge picked:', correctAns:'Correct answer:',
+  nextStage:'Next Stage', continuing:'Continuing',
+  susTurn:'\uD83D\uDD34 Suspect\'s Turn', whoWitness:'Who is the Witness?',
+  pickWitness:'Pick the player you think is the Witness',
+  confirmGuess:'Confirm Guess', voteSubmitted:'Vote Submitted', susVoting:'Suspects are voting',
+  susGuessing:'The suspects are now guessing who the Witness is...',
+  teamWins:'Team Wins!', teamWinsD:'Both words were correct and the Witness stayed hidden!',
+  susWin:'Suspects Win!',
+  judgeTO:'Judge ran out of time! ', wrongLoc:'Wrong location. ', wrongWeap:'Wrong weapon. ',
+  witExposed:'Witness was exposed! ',
+  resultsLabel:'Results:', notReached:'Not reached', witExpLabel:'Witness exposed:',
+  yesW:'Yes', noW:'No', susGuessLabel:'Suspect guess:', playAgain:'Play Again',
+  disconnected:'Disconnected', connLost:'Connection lost.', backMenu:'Back to Menu',
+  enterName:'Enter your name', creatingRoom:'Creating room...', roomCreated:'Room created!',
+  connectingDots:'Connecting...', enterCode:'Enter a 4-letter room code',
+  roomNotFound:'Room not found. Check the code.', cantConnect:'Could not connect. Check the room code.',
+  connErr:'Connection error: ', roomFull:'Room is full', nameTaken:'Name already taken',
+  xJoined:' joined', xDisc:' disconnected',
+  hostDC:'Host disconnected. The game has ended.', hostLost:'Connection to host lost.',
+  codeCopied:'Code copied!',
+  need:'Need at least', toStart:'players to start', pPlayers:'players',
+  langBtn:'\u0639\u0631\u0628\u064A',
+  // Rules
+  rSetup:'<b style="color:var(--gold)">Setup:</b> One player creates a game and shares the 4-letter room code. Everyone else joins on their own device.',
+  rRoles:'<b style="color:var(--text)">Roles are dealt secretly:</b>',
+  rJudge:'\u2696\uFE0F <b>Judge</b> \u2014 No info. Runs the investigation. Makes the final call on every vote.',
+  rWitness:'\uD83D\uDC41\uFE0F <b>Witness</b> \u2014 Knows the crime location and murder weapon. Must guide the team without being obvious.',
+  rDetective:'\uD83D\uDD0D <b>Detective</b> \u2014 Gets one subtle clue per round. Shares it aloud and helps the Judge piece things together.',
+  rSuspect:'\uD83D\uDD34 <b>Suspect</b> \u2014 Also knows the location and weapon. Pretends to be a Detective and tries to mislead everyone.',
+  rR1:'<b style="color:var(--blue)">Round 1 \u2014 Location:</b> A grid of locations appears. Everyone reads silently, then discusses openly. Detectives share clues, Suspects bluff. The Judge picks the crime scene.',
+  rR2:'<b style="color:var(--red)">Round 2 \u2014 Weapon:</b> A new grid of weapons. Same flow \u2014 clues, discussion, Judge decides. A wrong pick ends the game immediately.',
+  rR3:'<b style="color:var(--purple)">Round 3 \u2014 Whodunit:</b> The Judge picks who they think the Suspect is. Then each Suspect secretly guesses who the Witness is.',
+  rTeamW:'<b style="color:var(--green)">Team Wins:</b> Judge gets both words right AND the Witness stays hidden.',
+  rSusW:'<b style="color:var(--red)">Suspects Win:</b> Judge picks a wrong word OR a Suspect correctly identifies the Witness.',
+  guessed:' guessed ',
+  loc:'Location', weap:'Weapon',
+},
+ar: {
+  title:'\u0627\u0644\u0645\u062D\u0642\u0642\u0648\u0646',
+  createGame:'\u0625\u0646\u0634\u0627\u0621 \u0644\u0639\u0628\u0629',
+  joinGame:'\u0627\u0646\u0636\u0645\u0627\u0645 \u0644\u0644\u0639\u0628\u0629',
+  howToPlay:'\u0637\u0631\u064A\u0642\u0629 \u0627\u0644\u0644\u0639\u0628',
+  back:'\u0631\u062C\u0648\u0639',
+  createTitle:'\u0625\u0646\u0634\u0627\u0621 \u0644\u0639\u0628\u0629',
+  createSub:'\u0633\u062A\u0643\u0648\u0646 \u0623\u0646\u062A \u0627\u0644\u0645\u0636\u064A\u0641',
+  namePH:'\u0627\u0633\u0645\u0643...',
+  createRoom:'\u0625\u0646\u0634\u0627\u0621 \u063A\u0631\u0641\u0629',
+  joinTitle:'\u0627\u0646\u0636\u0645\u0627\u0645 \u0644\u0644\u0639\u0628\u0629',
+  joinSub:'\u0623\u062F\u062E\u0644 \u0631\u0645\u0632 \u0627\u0644\u063A\u0631\u0641\u0629',
+  codePH:'\u0631\u0645\u0632 \u0627\u0644\u063A\u0631\u0641\u0629 (4 \u0623\u062D\u0631\u0641)',
+  joinRoom:'\u0627\u0646\u0636\u0645\u0627\u0645',
+  roomCode:'\u0631\u0645\u0632 \u0627\u0644\u063A\u0631\u0641\u0629',
+  shareCode:'\u0645\u0634\u0627\u0631\u0643\u0629 \u0627\u0644\u0631\u0645\u0632',
+  playersOf:'\u0627\u0644\u0644\u0627\u0639\u0628\u0648\u0646',
+  gameSettings:'\u2699\uFE0F \u0625\u0639\u062F\u0627\u062F\u0627\u062A \u0627\u0644\u0644\u0639\u0628\u0629',
+  startGame:'\u0628\u062F\u0621 \u0627\u0644\u0644\u0639\u0628\u0629',
+  waitHost:'\u0628\u0627\u0646\u062A\u0638\u0627\u0631 \u0627\u0644\u0645\u0636\u064A\u0641 \u0644\u0628\u062F\u0621 \u0627\u0644\u0644\u0639\u0628\u0629',
+  leaveGame:'\u0645\u063A\u0627\u062F\u0631\u0629 \u0627\u0644\u0644\u0639\u0628\u0629',
+  sMinP:'\u0623\u0642\u0644 \u0639\u062F\u062F \u0644\u0627\u0639\u0628\u064A\u0646',
+  sMinPd:'\u0627\u0644\u062D\u062F \u0627\u0644\u0623\u062F\u0646\u0649 \u0644\u0644\u0628\u062F\u0621',
+  sMaxP:'\u0623\u0643\u062B\u0631 \u0639\u062F\u062F \u0644\u0627\u0639\u0628\u064A\u0646',
+  sMaxPd:'\u0633\u0639\u0629 \u0627\u0644\u063A\u0631\u0641\u0629',
+  sSus:'\u0627\u0644\u0645\u0634\u062A\u0628\u0647 \u0628\u0647\u0645',
+  sSusd:'\u064A\u062A\u063A\u064A\u0631 \u062A\u0644\u0642\u0627\u0626\u064A\u0627\u064B \u062D\u0633\u0628 \u0639\u062F\u062F \u0627\u0644\u0644\u0627\u0639\u0628\u064A\u0646',
+  sGrid:'\u062D\u062C\u0645 \u0627\u0644\u0634\u0628\u0643\u0629',
+  sGridd:'\u0639\u062F\u062F \u0627\u0644\u0643\u0644\u0645\u0627\u062A',
+  sPrep:'\u0648\u0642\u062A \u0627\u0644\u062A\u062D\u0636\u064A\u0631',
+  sPrepd:'\u0645\u0631\u062D\u0644\u0629 \u0627\u0644\u0642\u0631\u0627\u0621\u0629 \u0627\u0644\u0635\u0627\u0645\u062A\u0629',
+  sDisc:'\u0648\u0642\u062A \u0627\u0644\u0646\u0642\u0627\u0634',
+  sDiscd:'\u0645\u0631\u062D\u0644\u0629 \u0627\u0644\u0646\u0642\u0627\u0634 \u0627\u0644\u062C\u0645\u0627\u0639\u064A',
+  sJudge:'\u0648\u0642\u062A \u0627\u0644\u0642\u0627\u0636\u064A',
+  sJudged:'\u0645\u0624\u0642\u062A \u0627\u0644\u0642\u0631\u0627\u0631',
+  auto:'\u062A\u0644\u0642\u0627\u0626\u064A',
+  yourRole:'\u062F\u0648\u0631\u0643 \u0627\u0644\u0633\u0631\u064A',
+  tapReveal:'\u0627\u0636\u063A\u0637 \u0644\u0644\u0643\u0634\u0641',
+  ready:'\u0623\u0646\u0627 \u062C\u0627\u0647\u0632',
+  waitOthers:'\u0628\u0627\u0646\u062A\u0638\u0627\u0631 \u0627\u0644\u0622\u062E\u0631\u064A\u0646',
+  waitPlayers:'\u0628\u0627\u0646\u062A\u0638\u0627\u0631 \u0627\u0644\u0644\u0627\u0639\u0628\u064A\u0646',
+  everyoneConfirm:'\u064A\u062C\u0628 \u0623\u0646 \u064A\u0624\u0643\u062F \u0627\u0644\u062C\u0645\u064A\u0639 \u0623\u062F\u0648\u0627\u0631\u0647\u0645...',
+  Judge:'\u0627\u0644\u0642\u0627\u0636\u064A',
+  Witness:'\u0627\u0644\u0634\u0627\u0647\u062F',
+  Detective:'\u0627\u0644\u0645\u062D\u0642\u0642',
+  Suspect:'\u0627\u0644\u0645\u0634\u062A\u0628\u0647 \u0628\u0647',
+  judgeDesc:'\u0644\u0627 \u062A\u0645\u0644\u0643 \u0623\u064A \u0645\u0639\u0644\u0648\u0645\u0627\u062A.<br>\u0627\u0633\u062A\u0645\u0639 \u0644\u0644\u0646\u0642\u0627\u0634 \u0648\u0627\u062A\u062E\u0630 \u0627\u0644\u0642\u0631\u0627\u0631 \u0627\u0644\u0646\u0647\u0627\u0626\u064A.',
+  witnessDesc:'\u0633\u0627\u0639\u062F \u0641\u0631\u064A\u0642\u0643 \u0628\u0630\u0643\u0627\u0621. \u0644\u0627 \u062A\u0643\u0634\u0641 \u0647\u0648\u064A\u062A\u0643!',
+  detectiveDesc:'\u0633\u062A\u062D\u0635\u0644 \u0639\u0644\u0649 \u062F\u0644\u0627\u0626\u0644 \u0641\u064A \u0643\u0644 \u062C\u0648\u0644\u0629.<br>\u0634\u0627\u0631\u0643\u0647\u0627 \u0648\u0633\u0627\u0639\u062F \u0627\u0644\u0641\u0631\u064A\u0642!',
+  suspectDesc:'\u0623\u0646\u062A \u062A\u0639\u0631\u0641 \u0627\u0644\u0625\u062C\u0627\u0628\u0627\u062A. \u062A\u0638\u0627\u0647\u0631 \u0628\u0623\u0646\u0643 \u0645\u062D\u0642\u0642 \u0648\u0636\u0644\u0651\u0644 \u0627\u0644\u062C\u0645\u064A\u0639!',
+  judgeInfo:'\u2696\uFE0F \u0623\u0646\u062A \u0627\u0644\u0642\u0627\u0636\u064A \u2014 \u0627\u0633\u062A\u0645\u0639 \u0648\u0642\u0631\u0631',
+  theWord:'', locLabel:'\u0627\u0644\u0645\u0648\u0642\u0639', weapLabel:'\u0627\u0644\u0633\u0644\u0627\u062D', is:'\u0647\u0648:',
+  clue:'\u062F\u0644\u064A\u0644\u0643:', knowAnswer:'\u0623\u0646\u062A \u062A\u0639\u0631\u0641 \u0627\u0644\u0625\u062C\u0627\u0628\u0629:',
+  s1Loc:'\uD83D\uDCCD \u0627\u0644\u062C\u0648\u0644\u0629 \u0661 \u2014 \u0627\u0644\u0645\u0648\u0642\u0639',
+  s2Weap:'\uD83D\uDD2A \u0627\u0644\u062C\u0648\u0644\u0629 \u0662 \u2014 \u0627\u0644\u0633\u0644\u0627\u062D',
+  s3Sus:'\uD83D\uDD34 \u0627\u0644\u062C\u0648\u0644\u0629 \u0663 \u2014 \u0627\u0644\u0645\u0634\u062A\u0628\u0647 \u0628\u0647',
+  readLoc:'\u0627\u0642\u0631\u0623 \u0634\u0628\u0643\u0629 \u0627\u0644\u0645\u0648\u0627\u0642\u0639',
+  readWeap:'\u0627\u0642\u0631\u0623 \u0634\u0628\u0643\u0629 \u0627\u0644\u0623\u0633\u0644\u062D\u0629',
+  locDisc:'\u0646\u0642\u0627\u0634 \u0627\u0644\u0645\u0648\u0642\u0639',
+  weapDisc:'\u0646\u0642\u0627\u0634 \u0627\u0644\u0633\u0644\u0627\u062D',
+  PREP:'\u0627\u0644\u062A\u062D\u0636\u064A\u0631',
+  DISC:'\u0627\u0644\u0646\u0642\u0627\u0634',
+  discHint:'\u0646\u0627\u0642\u0634\u0648\u0627 \u0628\u0635\u0648\u062A \u0639\u0627\u0644\u064D. \u0627\u0644\u0645\u062D\u0642\u0642\u0648\u0646 \u064A\u0634\u0627\u0631\u0643\u0648\u0646 \u0627\u0644\u062F\u0644\u0627\u0626\u0644. \u0627\u0644\u0645\u0634\u062A\u0628\u0647 \u0628\u0647\u0645 \u064A\u0636\u0644\u0644\u0648\u0646!',
+  prepHint:'\u0627\u0642\u0631\u0623 \u0627\u0644\u0643\u0644\u0645\u0627\u062A \u0628\u0635\u0645\u062A. \u062D\u0636\u0651\u0631 \u0627\u0633\u062A\u0631\u0627\u062A\u064A\u062C\u064A\u062A\u0643.',
+  endDiscEarly:'\u0625\u0646\u0647\u0627\u0621 \u0627\u0644\u0646\u0642\u0627\u0634 \u0645\u0628\u0643\u0631\u0627\u064B',
+  pickLoc:'\u0627\u062E\u062A\u0631 \u0627\u0644\u0645\u0648\u0642\u0639',
+  pickWeap:'\u0627\u062E\u062A\u0631 \u0627\u0644\u0633\u0644\u0627\u062D',
+  idSuspect:'\u062D\u062F\u062F \u0627\u0644\u0645\u0634\u062A\u0628\u0647 \u0628\u0647',
+  makeChoice:'\u0627\u062A\u062E\u0630 \u0642\u0631\u0627\u0631\u0643',
+  locPick:'\u0627\u062E\u062A\u064A\u0627\u0631 \u0627\u0644\u0645\u0648\u0642\u0639',
+  weapPick:'\u0627\u062E\u062A\u064A\u0627\u0631 \u0627\u0644\u0633\u0644\u0627\u062D',
+  susId:'\u062A\u062D\u062F\u064A\u062F \u0627\u0644\u0645\u0634\u062A\u0628\u0647 \u0628\u0647',
+  judgeChoosing:'\u0627\u0644\u0642\u0627\u0636\u064A \u064A\u062E\u062A\u0627\u0631...',
+  decideOrLose:'\u0642\u0631\u0631 \u0648\u0625\u0644\u0627 \u064A\u0641\u0648\u0632 \u0627\u0644\u0645\u0634\u062A\u0628\u0647 \u0628\u0647\u0645',
+  waitJudge:'\u0628\u0627\u0646\u062A\u0638\u0627\u0631 \u0642\u0631\u0627\u0631 \u0627\u0644\u0642\u0627\u0636\u064A',
+  confirmSel:'\u062A\u0623\u0643\u064A\u062F \u0627\u0644\u0627\u062E\u062A\u064A\u0627\u0631',
+  correct:'\u0635\u062D\u064A\u062D!',
+  wrong:'\u062E\u0637\u0623!',
+  judgePicked:'\u0627\u0644\u0642\u0627\u0636\u064A \u0627\u062E\u062A\u0627\u0631:',
+  correctAns:'\u0627\u0644\u0625\u062C\u0627\u0628\u0629 \u0627\u0644\u0635\u062D\u064A\u062D\u0629:',
+  nextStage:'\u0627\u0644\u062C\u0648\u0644\u0629 \u0627\u0644\u062A\u0627\u0644\u064A\u0629',
+  continuing:'\u062C\u0627\u0631\u064D \u0627\u0644\u0645\u062A\u0627\u0628\u0639\u0629',
+  susTurn:'\uD83D\uDD34 \u062F\u0648\u0631 \u0627\u0644\u0645\u0634\u062A\u0628\u0647 \u0628\u0647\u0645',
+  whoWitness:'\u0645\u0646 \u0647\u0648 \u0627\u0644\u0634\u0627\u0647\u062F\u061F',
+  pickWitness:'\u0627\u062E\u062A\u0631 \u0627\u0644\u0644\u0627\u0639\u0628 \u0627\u0644\u0630\u064A \u062A\u0639\u062A\u0642\u062F \u0623\u0646\u0647 \u0627\u0644\u0634\u0627\u0647\u062F',
+  confirmGuess:'\u062A\u0623\u0643\u064A\u062F \u0627\u0644\u062A\u062E\u0645\u064A\u0646',
+  voteSubmitted:'\u062A\u0645 \u0627\u0644\u062A\u0635\u0648\u064A\u062A',
+  susVoting:'\u0627\u0644\u0645\u0634\u062A\u0628\u0647 \u0628\u0647\u0645 \u064A\u0635\u0648\u062A\u0648\u0646',
+  susGuessing:'\u0627\u0644\u0645\u0634\u062A\u0628\u0647 \u0628\u0647\u0645 \u064A\u062D\u0627\u0648\u0644\u0648\u0646 \u062A\u062E\u0645\u064A\u0646 \u0647\u0648\u064A\u0629 \u0627\u0644\u0634\u0627\u0647\u062F...',
+  teamWins:'\u0627\u0644\u0641\u0631\u064A\u0642 \u064A\u0641\u0648\u0632!',
+  teamWinsD:'\u062A\u0645 \u062A\u062E\u0645\u064A\u0646 \u0627\u0644\u0643\u0644\u0645\u062A\u064A\u0646 \u0628\u0634\u0643\u0644 \u0635\u062D\u064A\u062D \u0648\u0627\u0644\u0634\u0627\u0647\u062F \u0644\u0645 \u064A\u064F\u0643\u0634\u0641!',
+  susWin:'\u0627\u0644\u0645\u0634\u062A\u0628\u0647 \u0628\u0647\u0645 \u064A\u0641\u0648\u0632\u0648\u0646!',
+  judgeTO:'\u0646\u0641\u062F \u0648\u0642\u062A \u0627\u0644\u0642\u0627\u0636\u064A! ',
+  wrongLoc:'\u0645\u0648\u0642\u0639 \u062E\u0627\u0637\u0626. ',
+  wrongWeap:'\u0633\u0644\u0627\u062D \u062E\u0627\u0637\u0626. ',
+  witExposed:'\u062A\u0645 \u0643\u0634\u0641 \u0627\u0644\u0634\u0627\u0647\u062F! ',
+  resultsLabel:'\u0627\u0644\u0646\u062A\u0627\u0626\u062C:',
+  notReached:'\u0644\u0645 \u064A\u062A\u0645 \u0627\u0644\u0648\u0635\u0648\u0644',
+  witExpLabel:'\u0627\u0646\u0643\u0634\u0627\u0641 \u0627\u0644\u0634\u0627\u0647\u062F:',
+  yesW:'\u0646\u0639\u0645', noW:'\u0644\u0627',
+  susGuessLabel:'\u062A\u062E\u0645\u064A\u0646 \u0627\u0644\u0645\u0634\u062A\u0628\u0647 \u0628\u0647:',
+  playAgain:'\u0644\u0639\u0628 \u0645\u0631\u0629 \u0623\u062E\u0631\u0649',
+  disconnected:'\u0627\u0646\u0642\u0637\u0639 \u0627\u0644\u0627\u062A\u0635\u0627\u0644',
+  connLost:'\u0641\u064F\u0642\u062F \u0627\u0644\u0627\u062A\u0635\u0627\u0644.',
+  backMenu:'\u0627\u0644\u0639\u0648\u062F\u0629 \u0644\u0644\u0642\u0627\u0626\u0645\u0629',
+  enterName:'\u0623\u062F\u062E\u0644 \u0627\u0633\u0645\u0643',
+  creatingRoom:'\u062C\u0627\u0631\u064D \u0625\u0646\u0634\u0627\u0621 \u0627\u0644\u063A\u0631\u0641\u0629...',
+  roomCreated:'\u062A\u0645 \u0625\u0646\u0634\u0627\u0621 \u0627\u0644\u063A\u0631\u0641\u0629!',
+  connectingDots:'\u062C\u0627\u0631\u064D \u0627\u0644\u0627\u062A\u0635\u0627\u0644...',
+  enterCode:'\u0623\u062F\u062E\u0644 \u0631\u0645\u0632 \u0627\u0644\u063A\u0631\u0641\u0629 (4 \u0623\u062D\u0631\u0641)',
+  roomNotFound:'\u0627\u0644\u063A\u0631\u0641\u0629 \u063A\u064A\u0631 \u0645\u0648\u062C\u0648\u062F\u0629. \u062A\u062D\u0642\u0642 \u0645\u0646 \u0627\u0644\u0631\u0645\u0632.',
+  cantConnect:'\u062A\u0639\u0630\u0631 \u0627\u0644\u0627\u062A\u0635\u0627\u0644. \u062A\u062D\u0642\u0642 \u0645\u0646 \u0631\u0645\u0632 \u0627\u0644\u063A\u0631\u0641\u0629.',
+  connErr:'\u062E\u0637\u0623 \u0641\u064A \u0627\u0644\u0627\u062A\u0635\u0627\u0644: ',
+  roomFull:'\u0627\u0644\u063A\u0631\u0641\u0629 \u0645\u0645\u062A\u0644\u0626\u0629',
+  nameTaken:'\u0627\u0644\u0627\u0633\u0645 \u0645\u0633\u062A\u062E\u062F\u0645 \u0628\u0627\u0644\u0641\u0639\u0644',
+  xJoined:' \u0627\u0646\u0636\u0645',
+  xDisc:' \u0627\u0646\u0642\u0637\u0639 \u0627\u062A\u0635\u0627\u0644\u0647',
+  hostDC:'\u0627\u0646\u0642\u0637\u0639 \u0627\u062A\u0635\u0627\u0644 \u0627\u0644\u0645\u0636\u064A\u0641. \u0627\u0646\u062A\u0647\u062A \u0627\u0644\u0644\u0639\u0628\u0629.',
+  hostLost:'\u0641\u064F\u0642\u062F \u0627\u0644\u0627\u062A\u0635\u0627\u0644 \u0628\u0627\u0644\u0645\u0636\u064A\u0641.',
+  codeCopied:'\u062A\u0645 \u0646\u0633\u062E \u0627\u0644\u0631\u0645\u0632!',
+  need:'\u064A\u0644\u0632\u0645 \u0639\u0644\u0649 \u0627\u0644\u0623\u0642\u0644',
+  toStart:'\u0644\u0627\u0639\u0628\u064A\u0646 \u0644\u0644\u0628\u062F\u0621',
+  pPlayers:'\u0644\u0627\u0639\u0628\u064A\u0646',
+  langBtn:'EN',
+  rSetup:'<b style="color:var(--gold)">\u0627\u0644\u0625\u0639\u062F\u0627\u062F:</b> \u0644\u0627\u0639\u0628 \u0648\u0627\u062D\u062F \u064A\u0646\u0634\u0626 \u0627\u0644\u0644\u0639\u0628\u0629 \u0648\u064A\u0634\u0627\u0631\u0643 \u0631\u0645\u0632 \u0627\u0644\u063A\u0631\u0641\u0629. \u0627\u0644\u0628\u0642\u064A\u0629 \u064A\u0646\u0636\u0645\u0648\u0646 \u0645\u0646 \u0623\u062C\u0647\u0632\u062A\u0647\u0645.',
+  rRoles:'<b style="color:var(--text)">\u0627\u0644\u0623\u062F\u0648\u0627\u0631 \u062A\u0648\u0632\u0639 \u0633\u0631\u0627\u064B:</b>',
+  rJudge:'\u2696\uFE0F <b>\u0627\u0644\u0642\u0627\u0636\u064A</b> \u2014 \u0644\u0627 \u064A\u0645\u0644\u0643 \u0645\u0639\u0644\u0648\u0645\u0627\u062A. \u064A\u062F\u064A\u0631 \u0627\u0644\u062A\u062D\u0642\u064A\u0642 \u0648\u064A\u062A\u062E\u0630 \u0627\u0644\u0642\u0631\u0627\u0631 \u0627\u0644\u0646\u0647\u0627\u0626\u064A.',
+  rWitness:'\uD83D\uDC41\uFE0F <b>\u0627\u0644\u0634\u0627\u0647\u062F</b> \u2014 \u064A\u0639\u0631\u0641 \u0645\u0648\u0642\u0639 \u0627\u0644\u062C\u0631\u064A\u0645\u0629 \u0648\u0633\u0644\u0627\u062D \u0627\u0644\u0642\u062A\u0644. \u064A\u062C\u0628 \u0623\u0646 \u064A\u0633\u0627\u0639\u062F \u0627\u0644\u0641\u0631\u064A\u0642 \u0628\u062F\u0648\u0646 \u0623\u0646 \u064A\u0643\u0648\u0646 \u0648\u0627\u0636\u062D\u0627\u064B.',
+  rDetective:'\uD83D\uDD0D <b>\u0627\u0644\u0645\u062D\u0642\u0642</b> \u2014 \u064A\u062D\u0635\u0644 \u0639\u0644\u0649 \u062F\u0644\u064A\u0644 \u062E\u0641\u064A \u0641\u064A \u0643\u0644 \u062C\u0648\u0644\u0629. \u064A\u0634\u0627\u0631\u0643\u0647 \u0628\u0635\u0648\u062A \u0639\u0627\u0644\u064D \u0648\u064A\u0633\u0627\u0639\u062F \u0627\u0644\u0642\u0627\u0636\u064A.',
+  rSuspect:'\uD83D\uDD34 <b>\u0627\u0644\u0645\u0634\u062A\u0628\u0647 \u0628\u0647</b> \u2014 \u064A\u0639\u0631\u0641 \u0623\u064A\u0636\u0627\u064B \u0627\u0644\u0645\u0648\u0642\u0639 \u0648\u0627\u0644\u0633\u0644\u0627\u062D. \u064A\u062A\u0638\u0627\u0647\u0631 \u0628\u0623\u0646\u0647 \u0645\u062D\u0642\u0642 \u0648\u064A\u062D\u0627\u0648\u0644 \u062A\u0636\u0644\u064A\u0644 \u0627\u0644\u062C\u0645\u064A\u0639.',
+  rR1:'<b style="color:var(--blue)">\u0627\u0644\u062C\u0648\u0644\u0629 \u0661 \u2014 \u0627\u0644\u0645\u0648\u0642\u0639:</b> \u062A\u0638\u0647\u0631 \u0634\u0628\u0643\u0629 \u0645\u0648\u0627\u0642\u0639. \u0627\u0644\u062C\u0645\u064A\u0639 \u064A\u0642\u0631\u0623 \u0628\u0635\u0645\u062A \u062B\u0645 \u064A\u0646\u0627\u0642\u0634. \u0627\u0644\u0645\u062D\u0642\u0642\u0648\u0646 \u064A\u0634\u0627\u0631\u0643\u0648\u0646 \u0627\u0644\u062F\u0644\u0627\u0626\u0644 \u0648\u0627\u0644\u0645\u0634\u062A\u0628\u0647 \u0628\u0647\u0645 \u064A\u0636\u0644\u0644\u0648\u0646. \u0627\u0644\u0642\u0627\u0636\u064A \u064A\u062E\u062A\u0627\u0631 \u0645\u0643\u0627\u0646 \u0627\u0644\u062C\u0631\u064A\u0645\u0629.',
+  rR2:'<b style="color:var(--red)">\u0627\u0644\u062C\u0648\u0644\u0629 \u0662 \u2014 \u0627\u0644\u0633\u0644\u0627\u062D:</b> \u0634\u0628\u0643\u0629 \u0623\u0633\u0644\u062D\u0629 \u062C\u062F\u064A\u062F\u0629. \u0646\u0641\u0633 \u0627\u0644\u0637\u0631\u064A\u0642\u0629 \u2014 \u062F\u0644\u0627\u0626\u0644\u060C \u0646\u0642\u0627\u0634\u060C \u0627\u0644\u0642\u0627\u0636\u064A \u064A\u0642\u0631\u0631. \u0627\u0644\u0627\u062E\u062A\u064A\u0627\u0631 \u0627\u0644\u062E\u0627\u0637\u0626 \u064A\u0646\u0647\u064A \u0627\u0644\u0644\u0639\u0628\u0629 \u0641\u0648\u0631\u0627\u064B.',
+  rR3:'<b style="color:var(--purple)">\u0627\u0644\u062C\u0648\u0644\u0629 \u0663 \u2014 \u0645\u0646 \u0627\u0644\u0641\u0627\u0639\u0644:</b> \u0627\u0644\u0642\u0627\u0636\u064A \u064A\u062E\u062A\u0627\u0631 \u0645\u0646 \u064A\u0639\u062A\u0642\u062F \u0623\u0646\u0647 \u0627\u0644\u0645\u0634\u062A\u0628\u0647 \u0628\u0647. \u062B\u0645 \u0643\u0644 \u0645\u0634\u062A\u0628\u0647 \u0628\u0647 \u064A\u062E\u0645\u0646 \u0633\u0631\u0627\u064B \u0645\u0646 \u0647\u0648 \u0627\u0644\u0634\u0627\u0647\u062F.',
+  rTeamW:'<b style="color:var(--green)">\u0641\u0648\u0632 \u0627\u0644\u0641\u0631\u064A\u0642:</b> \u0627\u0644\u0642\u0627\u0636\u064A \u064A\u062E\u0645\u0646 \u0627\u0644\u0643\u0644\u0645\u062A\u064A\u0646 \u0628\u0634\u0643\u0644 \u0635\u062D\u064A\u062D \u0648\u0627\u0644\u0634\u0627\u0647\u062F \u064A\u0628\u0642\u0649 \u0645\u062E\u0641\u064A\u0627\u064B.',
+  rSusW:'<b style="color:var(--red)">\u0641\u0648\u0632 \u0627\u0644\u0645\u0634\u062A\u0628\u0647 \u0628\u0647\u0645:</b> \u0627\u0644\u0642\u0627\u0636\u064A \u064A\u062E\u062A\u0627\u0631 \u0643\u0644\u0645\u0629 \u062E\u0627\u0637\u0626\u0629 \u0623\u0648 \u0645\u0634\u062A\u0628\u0647 \u0628\u0647 \u064A\u0643\u0634\u0641 \u0627\u0644\u0634\u0627\u0647\u062F.',
+  guessed:' \u062E\u0645\u0651\u0646 ',
+  loc:'\u0627\u0644\u0645\u0648\u0642\u0639', weap:'\u0627\u0644\u0633\u0644\u0627\u062D',
+}
+};
+
+function t(key) { return (TR[currentLang] && TR[currentLang][key]) || TR.en[key] || key; }
+function tRole(role) { return t(role) || role; }
+
+function setLang(lang) {
+  currentLang = lang;
+  localStorage.setItem('det-lang', lang);
+  document.documentElement.dir = lang === 'ar' ? 'rtl' : 'ltr';
+  document.documentElement.lang = lang;
+  document.documentElement.style.setProperty('--ls', lang === 'ar' ? '0px' : '4px');
+  document.documentElement.style.setProperty('--ls-sm', lang === 'ar' ? '0px' : '1.5px');
+  document.documentElement.style.setProperty('--ls-code', lang === 'ar' ? '8px' : '12px');
+  translateStaticUI();
 }
 
-async function fetchWikiImage(word) {
-  const article = WIKI_OVERRIDE[word] || word;
-
-  // Strategy 1: Wikipedia article thumbnail (skip SVGs and icons)
-  try {
-    const resp = await fetch(`https://en.wikipedia.org/api/rest_v1/page/summary/${encodeURIComponent(article)}`);
-    if (resp.ok) {
-      const data = await resp.json();
-      const src = data.originalimage?.source || data.thumbnail?.source;
-      if (src && !src.includes('.svg') && !src.includes('icon') && !src.includes('logo')) {
-        const bigUrl = src.replace(/\/\d+px-/, '/500px-');
-        const result = await loadCroppedImage(bigUrl);
-        if (result) return result;
-      }
-    }
-  } catch (e) {}
-
-  // Strategy 2: Wikimedia Commons photo search
-  try {
-    const searchTerm = COMMONS_SEARCH_TERM[word] || word;
-    const url = `https://commons.wikimedia.org/w/api.php?action=query&generator=search&gsrsearch=${encodeURIComponent(searchTerm)}&gsrnamespace=6&gsrlimit=8&prop=imageinfo&iiprop=url|mime|size&iiurlwidth=500&format=json&origin=*`;
-    const resp = await fetch(url);
-    if (resp.ok) {
-      const data = await resp.json();
-      const pages = data.query?.pages;
-      if (pages) {
-        const photos = Object.values(pages)
-          .map(p => p.imageinfo?.[0])
-          .filter(ii => ii && ii.thumburl
-            && ii.mime === 'image/jpeg'
-            && ii.width >= 300 && ii.height >= 200
-            && ii.width / ii.height < 3 && ii.height / ii.width < 3);
-        if (photos.length > 0) {
-          // Try up to 3 candidates in case one fails CORS
-          for (let i = 0; i < Math.min(3, photos.length); i++) {
-            const result = await loadCroppedImage(photos[i].thumburl);
-            if (result) return result;
-          }
-        }
-      }
-    }
-  } catch (e) {}
-
-  return null;
+function toggleLang() {
+  setLang(currentLang === 'en' ? 'ar' : 'en');
 }
 
-async function hostLoadAllImages(gridItems, salt, onProgress) {
-  let done = 0;
-  const promises = gridItems.map(async (item) => {
-    const dataUrl = await fetchWikiImage(item.word);
-    item.img = dataUrl || generateImage(item.word, salt);
-    done++;
-    if (onProgress) onProgress(done, gridItems.length);
+function translateStaticUI() {
+  const L = TR[currentLang];
+  // Menu
+  const menuTitle = document.querySelector('#s-menu h1');
+  if (menuTitle) menuTitle.textContent = L.title;
+  const menuBtns = document.querySelectorAll('#s-menu .btn');
+  if (menuBtns[0]) menuBtns[0].textContent = L.createGame;
+  if (menuBtns[1]) menuBtns[1].textContent = L.joinGame;
+  if (menuBtns[2]) menuBtns[2].textContent = L.howToPlay;
+  // Lang toggle
+  const lb = document.getElementById('lang-btn');
+  if (lb) lb.textContent = L.langBtn;
+  // Create screen
+  const cs = document.getElementById('s-create');
+  if (cs) {
+    cs.querySelector('h2').textContent = L.createTitle;
+    cs.querySelector('h3').textContent = L.createSub;
+    cs.querySelector('input').placeholder = L.namePH;
+    const btns = cs.querySelectorAll('.btn');
+    btns[0].textContent = L.createRoom;
+    btns[1].textContent = L.back;
+  }
+  // Join screen
+  const js = document.getElementById('s-join');
+  if (js) {
+    js.querySelector('h2').textContent = L.joinTitle;
+    js.querySelector('h3').textContent = L.joinSub;
+    js.querySelectorAll('input')[0].placeholder = L.codePH;
+    js.querySelectorAll('input')[1].placeholder = L.namePH;
+    const btns = js.querySelectorAll('.btn');
+    btns[0].textContent = L.joinRoom;
+    btns[1].textContent = L.back;
+  }
+  // Rules screen
+  const rs = document.getElementById('s-rules');
+  if (rs) {
+    rs.querySelector('h2').textContent = L.rulesTitle || L.howToPlay;
+    const card = rs.querySelector('.card');
+    if (card) {
+      const ps = card.querySelectorAll('p');
+      const divs = [L.rSetup, L.rRoles, L.rJudge, L.rWitness, L.rDetective, L.rSuspect, L.rR1, L.rR2, L.rR3, L.rTeamW, L.rSusW];
+      ps.forEach((p, i) => { if (divs[i]) p.innerHTML = divs[i]; });
+    }
+    rs.querySelector('.btn').textContent = L.back;
+  }
+  // Lobby
+  document.querySelector('#s-lobby h3').textContent = L.roomCode;
+  const shareBtn = document.querySelector('#s-lobby .btn-sm');
+  if (shareBtn) shareBtn.textContent = L.shareCode;
+  const setToggle = document.querySelector('.settings-toggle span:first-child');
+  if (setToggle) setToggle.textContent = L.gameSettings;
+  // Settings labels
+  const rows = document.querySelectorAll('.setting-row');
+  const settingKeys = [['sMinP','sMinPd'],['sMaxP','sMaxPd'],['sSus','sSusd'],['sGrid','sGridd'],['sPrep','sPrepd'],['sDisc','sDiscd'],['sJudge','sJudged']];
+  rows.forEach((row, i) => {
+    if (settingKeys[i]) {
+      const label = row.querySelector('.setting-label');
+      if (label) {
+        const sm = label.querySelector('small');
+        label.childNodes[0].textContent = L[settingKeys[i][0]];
+        if (sm) sm.textContent = L[settingKeys[i][1]];
+      }
+    }
   });
-  await Promise.race([
-    Promise.all(promises),
-    new Promise(r => setTimeout(r, 20000))
-  ]);
-  gridItems.forEach(item => {
-    if (!item.img) item.img = generateImage(item.word, salt);
-  });
+  // Auto option in suspects select
+  const susSelect = document.getElementById('set-suspects');
+  if (susSelect && susSelect.options[0]) susSelect.options[0].textContent = L.auto;
+  // Lobby buttons
+  const startBtn = document.getElementById('btn-start-game');
+  if (startBtn) startBtn.textContent = L.startGame;
+  const lobbyWait = document.getElementById('lobby-wait');
+  if (lobbyWait) lobbyWait.innerHTML = L.waitHost + '<span class="dots"></span>';
+  const lobbyLeave = document.querySelector('#s-lobby .btn-outline[onclick="leaveGame()"]');
+  if (lobbyLeave) lobbyLeave.textContent = L.leaveGame;
+  // Role reveal
+  const roleH3 = document.querySelector('#s-role h3');
+  if (roleH3) roleH3.textContent = L.yourRole;
+  const readyBtn = document.getElementById('btn-ready');
+  if (readyBtn) readyBtn.textContent = L.ready;
+  const readyWait = document.getElementById('ready-wait');
+  if (readyWait) readyWait.innerHTML = L.waitOthers + '<span class="dots"></span>';
+  // Loading
+  const loadTitle = document.getElementById('loading-title');
+  if (loadTitle) loadTitle.textContent = L.waitPlayers;
+  const loadSub = document.getElementById('loading-sub');
+  if (loadSub) loadSub.textContent = L.everyoneConfirm;
+  // Judge screen
+  const decideLabel = document.querySelector('#s-judge .timer-label');
+  if (decideLabel) decideLabel.textContent = L.decideOrLose;
+  const judgeWait = document.getElementById('judge-waiting');
+  if (judgeWait) judgeWait.innerHTML = L.waitJudge + '<span class="dots"></span>';
+  const judgeConfirm = document.getElementById('btn-judge-confirm');
+  if (judgeConfirm) judgeConfirm.textContent = L.confirmSel;
+  // Result screen
+  const nextBtn = document.getElementById('btn-next-stage');
+  if (nextBtn) nextBtn.textContent = L.nextStage;
+  const resultWait = document.getElementById('result-wait');
+  if (resultWait) resultWait.innerHTML = L.continuing + '<span class="dots"></span>';
+  // Suspect screen
+  const susConfirm = document.getElementById('btn-suspect-confirm');
+  if (susConfirm && susConfirm.textContent !== L.voteSubmitted) susConfirm.textContent = L.confirmGuess;
+  const susWait = document.getElementById('suspect-wait');
+  if (susWait) susWait.innerHTML = L.susVoting + '<span class="dots"></span>';
+  // Game over
+  const playAgainBtn = document.getElementById('btn-play-again');
+  if (playAgainBtn) playAgainBtn.textContent = L.playAgain;
+  const goLeave = document.querySelector('#s-gameover .btn-outline');
+  if (goLeave) goLeave.textContent = L.leaveGame;
+  // Disconnect overlay
+  const dcH2 = document.querySelector('#disconnect-overlay h2');
+  if (dcH2) dcH2.textContent = L.disconnected;
+  const dcBtn = document.querySelector('#disconnect-overlay .btn');
+  if (dcBtn) dcBtn.textContent = L.backMenu;
+  // End discussion button
+  const endDisc = document.getElementById('btn-end-discuss');
+  if (endDisc) endDisc.textContent = L.endDiscEarly;
+  // Update role card front text via CSS custom property
+  document.documentElement.style.setProperty('--tap-text', '"' + L.tapReveal + '"');
 }
 
 // ======================== STATE ========================
@@ -804,6 +1241,7 @@ let G = {
   timerRemaining: 0,
   judgeSelection: null,
   suspectVote: null,
+  gridCols: 3,
 };
 
 let HOST = null;
@@ -833,10 +1271,72 @@ function toast(msg, type = 'info') {
 }
 
 function getRoleDistribution(count) {
-  let suspects = 1;
-  if (count >= 6) suspects = 2;
-  if (count >= 9) suspects = 3;
-  return { judge: 1, witness: 1, suspects, detectives: count - 2 - suspects };
+  const susSetting = SETTINGS.suspects;
+  let suspects;
+  if (susSetting === 'auto') {
+    suspects = 1;
+    if (count >= 6) suspects = 2;
+    if (count >= 9) suspects = 3;
+  } else {
+    suspects = parseInt(susSetting);
+  }
+  // Clamp: need at least judge + witness + 1 detective, so max suspects = count - 3
+  suspects = Math.max(0, Math.min(suspects, count - 3));
+  const detectives = Math.max(0, count - 2 - suspects);
+  return { judge: 1, witness: 1, suspects, detectives };
+}
+
+// ======================== HOST SETTINGS ========================
+const SETTINGS = {
+  minPlayers: 4,
+  maxPlayers: 10,
+  suspects: 'auto',
+  gridSize: 9,
+  prepTime: 30,
+  discussTime: 90,
+  judgeTime: 15,
+};
+
+function toggleSettings() {
+  const panel = document.getElementById('settings-panel');
+  const arrow = document.getElementById('settings-arrow');
+  panel.classList.toggle('open');
+  arrow.classList.toggle('open');
+}
+
+function adjSetting(key, delta) {
+  const input = document.getElementById('set-' + key);
+  let val = parseInt(input.value) + delta;
+  val = Math.max(parseInt(input.min), Math.min(parseInt(input.max), val));
+  input.value = val;
+  onSettingChange();
+}
+
+function readSettings() {
+  SETTINGS.minPlayers = clampInt('set-minPlayers', 2, 20);
+  SETTINGS.maxPlayers = clampInt('set-maxPlayers', 2, 20);
+  if (SETTINGS.maxPlayers < SETTINGS.minPlayers) {
+    SETTINGS.maxPlayers = SETTINGS.minPlayers;
+    document.getElementById('set-maxPlayers').value = SETTINGS.maxPlayers;
+  }
+  SETTINGS.suspects = document.getElementById('set-suspects').value;
+  SETTINGS.gridSize = parseInt(document.getElementById('set-gridSize').value);
+  SETTINGS.prepTime = clampInt('set-prepTime', 10, 120);
+  SETTINGS.discussTime = clampInt('set-discussTime', 30, 300);
+  SETTINGS.judgeTime = clampInt('set-judgeTime', 10, 60);
+}
+
+function clampInt(id, min, max) {
+  const el = document.getElementById(id);
+  let v = parseInt(el.value) || min;
+  v = Math.max(min, Math.min(max, v));
+  el.value = v;
+  return v;
+}
+
+function onSettingChange() {
+  readSettings();
+  showLobby();
 }
 
 // ======================== SCREEN MANAGEMENT ========================
@@ -848,15 +1348,15 @@ function showScreen(id) {
 // ======================== NETWORKING ========================
 function createRoom() {
   const name = document.getElementById('host-name-input').value.trim();
-  if (!name) { toast('Enter your name', 'error'); return; }
+  if (!name) { toast(t('enterName'), 'error'); return; }
 
   document.getElementById('btn-create').disabled = true;
-  document.getElementById('create-status').textContent = 'Creating room...';
+  document.getElementById('create-status').textContent = t('creatingRoom');
 
   NET.myName = name;
   NET.isHost = true;
   NET.roomCode = generateRoomCode();
-  const peerId = 'hiddenword-' + NET.roomCode;
+  const peerId = 'detectives-' + NET.roomCode;
 
   NET.peer = new Peer(peerId);
 
@@ -864,7 +1364,7 @@ function createRoom() {
     NET.myId = id;
     NET.players = [{ name: NET.myName, id: NET.myId }];
     showLobby();
-    toast('Room created!', 'success');
+    toast(t('roomCreated'), 'success');
   });
 
   NET.peer.on('connection', (conn) => {
@@ -881,13 +1381,13 @@ function createRoom() {
       // Room code taken, retry
       NET.peer.destroy();
       NET.roomCode = generateRoomCode();
-      const newId = 'hiddenword-' + NET.roomCode;
+      const newId = 'detectives-' + NET.roomCode;
       NET.peer = new Peer(newId);
       NET.peer.on('open', (id) => {
         NET.myId = id;
         NET.players = [{ name: NET.myName, id: NET.myId }];
         showLobby();
-        toast('Room created!', 'success');
+        toast(t('roomCreated'), 'success');
       });
       NET.peer.on('connection', (conn) => {
         conn.on('data', (data) => handleHostReceive(conn, data));
@@ -904,11 +1404,11 @@ function createRoom() {
 function joinRoom() {
   const code = document.getElementById('join-code-input').value.trim().toUpperCase();
   const name = document.getElementById('join-name-input').value.trim();
-  if (!code || code.length !== 4) { toast('Enter a 4-letter room code', 'error'); return; }
-  if (!name) { toast('Enter your name', 'error'); return; }
+  if (!code || code.length !== 4) { toast(t('enterCode'), 'error'); return; }
+  if (!name) { toast(t('enterName'), 'error'); return; }
 
   document.getElementById('btn-join').disabled = true;
-  document.getElementById('join-status').textContent = 'Connecting...';
+  document.getElementById('join-status').textContent = t('connectingDots');
 
   NET.myName = name;
   NET.isHost = false;
@@ -918,7 +1418,7 @@ function joinRoom() {
 
   NET.peer.on('open', (id) => {
     NET.myId = id;
-    const hostId = 'hiddenword-' + code;
+    const hostId = 'detectives-' + code;
     const conn = NET.peer.connect(hostId, { reliable: true });
 
     conn.on('open', () => {
@@ -929,17 +1429,17 @@ function joinRoom() {
     conn.on('data', (data) => handleClientReceive(data));
 
     conn.on('close', () => {
-      showDisconnect('Host disconnected. The game has ended.');
+      showDisconnect(t('hostDC'));
     });
 
     conn.on('error', () => {
-      showDisconnect('Connection to host lost.');
+      showDisconnect(t('hostLost'));
     });
 
     // Timeout for connection
     setTimeout(() => {
       if (!NET.hostConn) {
-        toast('Could not connect. Check the room code.', 'error');
+        toast(t('cantConnect'), 'error');
         document.getElementById('btn-join').disabled = false;
         document.getElementById('join-status').textContent = '';
         if (NET.peer) NET.peer.destroy();
@@ -949,7 +1449,7 @@ function joinRoom() {
 
   NET.peer.on('error', (err) => {
     if (err.type === 'peer-unavailable') {
-      toast('Room not found. Check the code.', 'error');
+      toast(t('roomNotFound'), 'error');
       document.getElementById('btn-join').disabled = false;
       document.getElementById('join-status').textContent = '';
     } else {
@@ -960,7 +1460,7 @@ function joinRoom() {
 
 function handlePeerError(err) {
   console.error('PeerJS error:', err);
-  toast('Connection error: ' + (err.message || err.type), 'error');
+  toast(t('connErr') + (err.message || err.type), 'error');
   document.getElementById('btn-create').disabled = false;
   document.getElementById('btn-join').disabled = false;
   document.getElementById('create-status').textContent = '';
@@ -998,12 +1498,12 @@ function handleHostReceive(conn, data) {
 
   switch (data.type) {
     case 'join': {
-      if (NET.players.length >= 10) {
-        if (conn) conn.send({ type: 'error', msg: 'Room is full' });
+      if (NET.players.length >= SETTINGS.maxPlayers) {
+        if (conn) conn.send({ type: 'error', msg: t('roomFull') });
         return;
       }
       if (NET.players.some(p => p.name === data.name)) {
-        if (conn) conn.send({ type: 'error', msg: 'Name already taken' });
+        if (conn) conn.send({ type: 'error', msg: t('nameTaken') });
         return;
       }
       if (conn) {
@@ -1011,7 +1511,7 @@ function handleHostReceive(conn, data) {
       }
       NET.players.push({ name: data.name, id: conn ? conn.peer : NET.myId });
       broadcast({ type: 'lobby', players: NET.players, roomCode: NET.roomCode });
-      toast(data.name + ' joined', 'success');
+      toast(data.name + t('xJoined'), 'success');
       break;
     }
     case 'ready': {
@@ -1031,13 +1531,23 @@ function handleHostReceive(conn, data) {
       if (data.stage === 'location' || data.stage === 'weapon') {
         const correct = data.stage === 'location' ? HOST.correctLocation : HOST.correctWeapon;
         const isCorrect = data.value === correct;
-        broadcast({
-          type: 'result',
-          stage: data.stage,
-          correct: isCorrect,
-          guessed: data.value,
-          actual: correct
-        });
+        if (isCorrect) {
+          broadcast({ type: 'result', stage: data.stage, correct: true, guessed: data.value, actual: correct });
+        } else {
+          // Wrong answer — immediate game over, suspects win
+          broadcast({
+            type: 'gameover',
+            teamWins: false,
+            locCorrect: data.stage === 'location' ? false : null,
+            weapCorrect: data.stage === 'weapon' ? false : null,
+            witnessExposed: false,
+            judgeGuesses: HOST.judgeGuesses,
+            suspectVotes: {},
+            correctLocation: HOST.correctLocation,
+            correctWeapon: HOST.correctWeapon,
+            roles: HOST.roles
+          });
+        }
       } else if (data.stage === 'suspect') {
         HOST.judgeGuesses.suspect = data.value;
         broadcast({ type: 'phase', phase: 'suspect_guess' });
@@ -1056,10 +1566,12 @@ function handleHostReceive(conn, data) {
     case 'next-stage': {
       if (!HOST) return;
       if (G.phase === 'location_result') {
-        broadcast({ type: 'phase', phase: 'weapon_prep', timer: 30 });
-        hostStartTimer(30, () => {
-          broadcast({ type: 'phase', phase: 'weapon_discuss', timer: 90 });
-          hostStartTimer(90, () => {
+        const prep = HOST.settings.prepTime;
+        const disc = HOST.settings.discussTime;
+        broadcast({ type: 'phase', phase: 'weapon_prep', timer: prep });
+        hostStartTimer(prep, () => {
+          broadcast({ type: 'phase', phase: 'weapon_discuss', timer: disc });
+          hostStartTimer(disc, () => {
             hostStartJudgePhase('weapon');
           });
         });
@@ -1128,9 +1640,10 @@ function handleClientReceive(data) {
       G.weaponHint = data.weaponHint || '';
       G.locationWord = data.locationWord || '';
       G.weaponWord = data.weaponWord || '';
-      G.locationGrid = data.locationGrid;  // [{word, img}, ...] images pre-loaded by host
+      G.locationGrid = data.locationGrid;
       G.weaponGrid = data.weaponGrid;
       G.players = data.players;
+      G.gridCols = data.gridCols || 3;
       G.phase = 'role_reveal';
       showRoleReveal();
       break;
@@ -1141,6 +1654,7 @@ function handleClientReceive(data) {
       G.timerRemaining = data.timer || 0;
       G.judgeSelection = null;
       G.suspectVote = null;
+      document.getElementById('urgent-border').classList.remove('active');
       renderPhase();
       break;
     case 'tick':
@@ -1162,7 +1676,7 @@ function handleClientReceive(data) {
 function handlePlayerDisconnect(peerId) {
   const entry = NET.connections[peerId];
   if (entry) {
-    toast(entry.name + ' disconnected', 'error');
+    toast(entry.name + t('xDisc'), 'error');
     NET.players = NET.players.filter(p => p.id !== peerId);
     delete NET.connections[peerId];
     // Update lobby if still in lobby
@@ -1186,19 +1700,22 @@ function leaveGame() {
 // ======================== LOBBY ========================
 function showLobby() {
   document.getElementById('lobby-code').textContent = NET.roomCode;
-  document.getElementById('lobby-count').textContent = `Players (${NET.players.length}/10)`;
+  document.getElementById('lobby-count').textContent = `${t('playersOf')} (${NET.players.length}/${SETTINGS.maxPlayers})`;
 
   const listEl = document.getElementById('lobby-players');
   listEl.innerHTML = NET.players.map((p, i) =>
-    `<div class="lobby-player"><span class="dot"></span><span class="name">${esc(p.name)}</span>${i === 0 ? '<span class="host-tag">HOST</span>' : ''}</div>`
+    `<div class="lobby-player"><span class="dot"></span><span class="name">${esc(p.name)}</span>${i === 0 ? '<span class="host-tag">' + (currentLang === 'ar' ? '\u0645\u0636\u064A\u0641' : 'HOST') + '</span>' : ''}</div>`
   ).join('');
+
+  // Show settings panel for host only
+  document.getElementById('host-settings-wrap').style.display = NET.isHost ? 'block' : 'none';
 
   const startBtn = document.getElementById('btn-start-game');
   const waitMsg = document.getElementById('lobby-wait');
 
   if (NET.isHost) {
     startBtn.style.display = 'block';
-    startBtn.disabled = NET.players.length < 4;
+    startBtn.disabled = NET.players.length < SETTINGS.minPlayers;
     waitMsg.style.display = 'none';
   } else {
     startBtn.style.display = 'none';
@@ -1207,29 +1724,31 @@ function showLobby() {
 
   // Role preview
   const preview = document.getElementById('lobby-role-preview');
-  if (NET.players.length >= 4) {
+  if (NET.players.length >= SETTINGS.minPlayers) {
     const d = getRoleDistribution(NET.players.length);
     preview.style.display = 'block';
-    preview.innerHTML = `<b>${NET.players.length} players:</b> ${d.judge} Judge &bull; ${d.witness} Witness &bull; ${d.suspects} Suspect${d.suspects>1?'s':''} &bull; ${d.detectives} Detective${d.detectives>1?'s':''}`;
+    preview.innerHTML = `<b>${NET.players.length} ${t('pPlayers')}:</b> ${d.judge} ${t('Judge')} &bull; ${d.witness} ${t('Witness')} &bull; ${d.suspects} ${t('Suspect')}${d.suspects>1?'s':''} &bull; ${d.detectives} ${t('Detective')}${d.detectives>1?'s':''}`;
   } else {
-    preview.style.display = 'none';
+    preview.style.display = 'block';
+    preview.innerHTML = `<span style="color:var(--text3)">${t('need')} ${SETTINGS.minPlayers} ${t('toStart')}</span>`;
   }
 
   showScreen('s-lobby');
 }
 
 function shareRoom() {
-  const text = `Join my Hidden Word game!\nRoom code: ${NET.roomCode}`;
+  const text = `Join my Detectives game!\nRoom code: ${NET.roomCode}`;
   if (navigator.share) {
-    navigator.share({ title: 'The Hidden Word', text }).catch(() => {});
+    navigator.share({ title: 'Detectives', text }).catch(() => {});
   } else {
-    navigator.clipboard.writeText(NET.roomCode).then(() => toast('Code copied!', 'success')).catch(() => {});
+    navigator.clipboard.writeText(NET.roomCode).then(() => toast(t('codeCopied'), 'success')).catch(() => {});
   }
 }
 
 // ======================== HOST: START GAME ========================
-async function hostStartGame() {
-  if (NET.players.length < 4) return;
+function hostStartGame() {
+  readSettings();
+  if (NET.players.length < SETTINGS.minPlayers) return;
   document.getElementById('btn-start-game').disabled = true;
 
   HOST = {
@@ -1244,6 +1763,7 @@ async function hostStartGame() {
     timerRemaining: 0,
     judgeGuesses: { location: null, weapon: null, suspect: null },
     suspectVotes: {},
+    settings: { ...SETTINGS },
   };
 
   const names = NET.players.map(p => p.name);
@@ -1255,33 +1775,16 @@ async function hostStartGame() {
   for (let i = 2; i < 2 + dist.suspects; i++) HOST.roles[shuffled[i]] = 'Suspect';
   for (let i = 2 + dist.suspects; i < shuffled.length; i++) HOST.roles[shuffled[i]] = 'Detective';
 
-  // Generate grids
+  // Generate grids using configured grid size
+  const gridCount = SETTINGS.gridSize;
   HOST.salt = Math.random().toString(36).slice(2, 10);
   const locShuffle = shuffle(LOCATIONS);
   HOST.correctLocation = locShuffle[0];
-  HOST.locationGrid = shuffle(locShuffle.slice(0, 9)).map(w => ({ word: w }));
+  HOST.locationGrid = shuffle(locShuffle.slice(0, gridCount)).map(w => ({ word: w }));
 
   const weapShuffle = shuffle(WEAPONS);
   HOST.correctWeapon = weapShuffle[0];
-  HOST.weaponGrid = shuffle(weapShuffle.slice(0, 9)).map(w => ({ word: w }));
-
-  // Show loading screen on host while images load
-  document.getElementById('loading-icon').textContent = '\u{1F4F7}';
-  document.getElementById('loading-title').textContent = 'Loading Crime Scene';
-  document.getElementById('loading-sub').textContent = 'Fetching images for the investigation...';
-  document.getElementById('loading-progress').style.display = 'block';
-  showScreen('s-loading');
-
-  // Load real images from Wikipedia (emoji fallback if unavailable)
-  let totalLoaded = 0;
-  const updateBar = (done, total) => {
-    totalLoaded++;
-    const pct = Math.round((totalLoaded / 18) * 100);
-    const bar = document.getElementById('loading-bar-fill');
-    if (bar) bar.style.width = pct + '%';
-  };
-  await hostLoadAllImages(HOST.locationGrid, HOST.salt, updateBar);
-  await hostLoadAllImages(HOST.weaponGrid, HOST.salt, updateBar);
+  HOST.weaponGrid = shuffle(weapShuffle.slice(0, gridCount)).map(w => ({ word: w }));
 
   // Generate hints for detectives
   names.forEach(name => {
@@ -1293,7 +1796,10 @@ async function hostStartGame() {
     }
   });
 
-  // Send private role data to each player (images included as data URLs)
+  // Compute grid columns for CSS
+  const gridCols = Math.round(Math.sqrt(gridCount));
+
+  // Send private role data to each player
   NET.players.forEach(p => {
     const role = HOST.roles[p.name];
     const msg = {
@@ -1306,6 +1812,7 @@ async function hostStartGame() {
       weaponHint: '',
       locationWord: '',
       weaponWord: '',
+      gridCols,
     };
 
     if (role === 'Witness') {
@@ -1314,27 +1821,31 @@ async function hostStartGame() {
     } else if (role === 'Detective') {
       msg.locationHint = HOST.hints[p.name].location;
       msg.weaponHint = HOST.hints[p.name].weapon;
+    } else if (role === 'Suspect') {
+      msg.locationWord = HOST.correctLocation;
+      msg.weaponWord = HOST.correctWeapon;
     }
 
     sendToPlayer(p.id, msg);
   });
 }
 
-const JUDGE_TIMER = 15;
-
 function startFirstPhase() {
-  broadcast({ type: 'phase', phase: 'location_prep', timer: 30 });
-  hostStartTimer(30, () => {
-    broadcast({ type: 'phase', phase: 'location_discuss', timer: 90 });
-    hostStartTimer(90, () => {
+  const prep = HOST.settings.prepTime;
+  const disc = HOST.settings.discussTime;
+  broadcast({ type: 'phase', phase: 'location_prep', timer: prep });
+  hostStartTimer(prep, () => {
+    broadcast({ type: 'phase', phase: 'location_discuss', timer: disc });
+    hostStartTimer(disc, () => {
       hostStartJudgePhase('location');
     });
   });
 }
 
 function hostStartJudgePhase(stage) {
-  broadcast({ type: 'phase', phase: stage + '_judge', timer: JUDGE_TIMER });
-  hostStartTimer(JUDGE_TIMER, () => {
+  const jt = HOST.settings.judgeTime;
+  broadcast({ type: 'phase', phase: stage + '_judge', timer: jt });
+  hostStartTimer(jt, () => {
     // Time's up — suspects win!
     broadcast({
       type: 'gameover',
@@ -1387,28 +1898,29 @@ function flipRole() {
   let icon, color, infoHTML;
   if (role === 'Judge') {
     icon = '&#9878;&#65039;'; color = 'var(--gold)';
-    infoHTML = '<div style="color:var(--text2);font-size:14px;margin-top:12px">You have no information.<br>Listen to discussions and make the final call.</div>';
+    infoHTML = '<div style="color:var(--text2);font-size:14px;margin-top:12px">' + t('judgeDesc') + '</div>';
   } else if (role === 'Witness') {
     icon = '&#128065;&#65039;'; color = 'var(--green)';
     infoHTML = `<div class="role-word">&#128205; ${esc(G.locationWord)}<br>&#128298; ${esc(G.weaponWord)}</div>
-      <div style="color:var(--text2);font-size:13px;margin-top:8px">Guide your team subtly. Don't get exposed!</div>`;
+      <div style="color:var(--text2);font-size:13px;margin-top:8px">${t('witnessDesc')}</div>`;
   } else if (role === 'Detective') {
     icon = '&#128270;'; color = 'var(--blue)';
-    infoHTML = '<div style="color:var(--text2);font-size:14px;margin-top:12px">You\'ll receive clues each round.<br>Share and deduce with your team!</div>';
+    infoHTML = '<div style="color:var(--text2);font-size:14px;margin-top:12px">' + t('detectiveDesc') + '</div>';
   } else {
     icon = '&#128308;'; color = 'var(--red)';
-    infoHTML = '<div style="color:var(--text2);font-size:14px;margin-top:12px">You have no information.<br>Pretend to be a Detective and mislead everyone!</div>';
+    infoHTML = `<div class="role-word">&#128205; ${esc(G.locationWord)}<br>&#128298; ${esc(G.weaponWord)}</div>
+      <div style="color:var(--text2);font-size:13px;margin-top:8px">${t('suspectDesc')}</div>`;
   }
 
-  back.innerHTML = `<div class="role-icon">${icon}</div><div class="role-name" style="color:${color}">${role}</div>${infoHTML}`;
+  back.innerHTML = `<div class="role-icon">${icon}</div><div class="role-name" style="color:${color}">${tRole(role)}</div>${infoHTML}`;
   back.style.background = 'linear-gradient(135deg, var(--card), var(--card2))';
 }
 
 function confirmReady() {
   document.getElementById('btn-ready').style.display = 'none';
   document.getElementById('loading-icon').textContent = '\u23F3';
-  document.getElementById('loading-title').textContent = 'Waiting for Players';
-  document.getElementById('loading-sub').textContent = 'Everyone needs to confirm their role...';
+  document.getElementById('loading-title').textContent = t('waitPlayers');
+  document.getElementById('loading-sub').textContent = t('everyoneConfirm');
   document.getElementById('loading-progress').style.display = 'none';
   showScreen('s-loading');
   sendToHost({ type: 'ready', name: NET.myName });
@@ -1438,30 +1950,31 @@ function renderGameScreen(mode, stage) {
   // Badge
   const badgeEl = document.getElementById('game-badge');
   badgeEl.innerHTML = isLoc
-    ? '<div class="stage-badge loc">&#128205; Stage 1 &mdash; Location</div>'
-    : '<div class="stage-badge weap">&#128298; Stage 2 &mdash; Weapon</div>';
+    ? '<div class="stage-badge loc">' + t('s1Loc') + '</div>'
+    : '<div class="stage-badge weap">' + t('s2Weap') + '</div>';
 
   // Title
   document.getElementById('game-title').textContent = mode === 'prep'
-    ? (isLoc ? 'Read the Location Grid' : 'Read the Weapon Grid')
-    : (isLoc ? 'Location Discussion' : 'Weapon Discussion');
+    ? (isLoc ? t('readLoc') : t('readWeap'))
+    : (isLoc ? t('locDisc') : t('weapDisc'));
 
   // Role info
   const roleInfoEl = document.getElementById('game-role-info');
   roleInfoEl.innerHTML = getRoleInfoHTML(stage);
 
-  // Grid (images)
+  // Grid
   const gridEl = document.getElementById('game-grid');
   gridEl.innerHTML = grid.map(item => renderGridCell(item, false)).join('');
+  gridEl.style.gridTemplateColumns = `repeat(${G.gridCols}, 1fr)`;
 
   // Timer
-  document.getElementById('game-timer-label').textContent = mode === 'prep' ? 'PREPARATION' : 'DISCUSSION';
+  document.getElementById('game-timer-label').textContent = mode === 'prep' ? t('PREP') : t('DISC');
   resetTimerRing(G.timerTotal);
 
   // Hint text
   document.getElementById('game-hint-text').textContent = mode === 'discuss'
-    ? 'Discuss openly. Detectives share clues. Suspects bluff!'
-    : 'Read the words silently. Prepare your strategy.';
+    ? t('discHint')
+    : t('prepHint');
 
   // End discussion button (judge only, during discussion)
   const endBtn = document.getElementById('btn-end-discuss');
@@ -1473,23 +1986,28 @@ function renderGameScreen(mode, stage) {
 function getRoleInfoHTML(stage) {
   const isLoc = stage === 'location';
   if (G.myRole === 'Judge') {
-    return '<div class="role-info judge">&#9878;&#65039; You are the Judge &mdash; Listen and decide</div>';
+    return '<div class="role-info judge">' + t('judgeInfo') + '</div>';
   } else if (G.myRole === 'Witness') {
     const word = isLoc ? G.locationWord : G.weaponWord;
-    return `<div class="role-info witness">&#128065;&#65039; The ${isLoc ? 'Location' : 'Weapon'} is:<span class="hint-word">${esc(word)}</span></div>`;
+    return '<div class="role-info witness">&#128065;&#65039; ' + t('theWord') + ' ' + (isLoc ? t('locLabel') : t('weapLabel')) + ' ' + t('is') + '<span class="hint-word">' + esc(tWord(word)) + '</span></div>';
   } else if (G.myRole === 'Detective') {
     const hint = isLoc ? G.locationHint : G.weaponHint;
-    return `<div class="role-info detective">&#128270; Your clue:<span class="hint-word">"${esc(hint)}"</span></div>`;
+    return '<div class="role-info detective">&#128270; ' + t('clue') + '<span class="hint-word">"' + esc(hint) + '"</span></div>';
   } else {
-    return '<div class="role-info suspect">&#128308; You are a Suspect &mdash; Blend in and mislead!</div>';
+    const word = isLoc ? G.locationWord : G.weaponWord;
+    return '<div class="role-info suspect">&#128308; ' + t('knowAnswer') + '<span class="hint-word">' + esc(tWord(word)) + '</span></div>';
   }
 }
 
 function renderGridCell(item, interactive, onclick) {
   const cls = interactive ? 'word-cell interactive' : 'word-cell';
   const click = onclick ? ` onclick="${onclick}"` : '';
-  return `<div class="${cls}"${click} data-word="${esc(item.word)}">
-    <img src="${esc(item.img)}" alt="" loading="eager">
+  const art = getCardArt(item.word);
+  const [emoji, bgDark, accent] = art;
+  return `<div class="${cls}"${click} data-word="${esc(item.word)}" style="background:linear-gradient(135deg,${bgDark},${bgDark}ee)">
+    <div class="cell-accent" style="background:radial-gradient(circle at 50% 40%,${accent},transparent)"></div>
+    <div class="cell-icon">${emoji}</div>
+    <div class="cell-label">${esc(tWord(item.word))}</div>
   </div>`;
 }
 
@@ -1517,11 +2035,17 @@ function updateTimerDisplay() {
   // Update game screen timer (prep/discussion)
   const fg = document.getElementById('game-timer-fg');
   const digits = document.getElementById('game-timer-digits');
+  const urgBorder = document.getElementById('urgent-border');
   if (fg && digits) {
     fg.style.strokeDashoffset = CIRC * pct;
     digits.textContent = remaining;
-    if (remaining <= 10) fg.classList.add('urgent');
-    else fg.classList.remove('urgent');
+    if (remaining <= 10) {
+      fg.classList.add('urgent');
+      digits.style.color = 'var(--red)';
+    } else {
+      fg.classList.remove('urgent');
+      digits.style.color = '';
+    }
   }
 
   // Update judge screen timer (decision timer)
@@ -1531,8 +2055,19 @@ function updateTimerDisplay() {
     jfg.style.strokeDasharray = CIRC;
     jfg.style.strokeDashoffset = CIRC * pct;
     jdigits.textContent = remaining;
-    if (remaining <= 5) jfg.classList.add('urgent');
-    else jfg.classList.remove('urgent');
+    if (remaining <= 5) {
+      jfg.classList.add('urgent');
+      jdigits.style.color = 'var(--red)';
+    } else {
+      jfg.classList.remove('urgent');
+      jdigits.style.color = '';
+    }
+  }
+
+  // Urgent screen border
+  if (urgBorder) {
+    if (remaining <= 10 && remaining > 0) urgBorder.classList.add('active');
+    else urgBorder.classList.remove('active');
   }
 }
 
@@ -1543,9 +2078,9 @@ function renderJudgeScreen(stage) {
 
   // Badge
   const badgeEl = document.getElementById('judge-badge');
-  if (isLoc) badgeEl.innerHTML = '<div class="stage-badge loc">&#128205; Stage 1 &mdash; Location</div>';
-  else if (isSuspect) badgeEl.innerHTML = '<div class="stage-badge sus">&#128308; Stage 3 &mdash; Suspect</div>';
-  else badgeEl.innerHTML = '<div class="stage-badge weap">&#128298; Stage 2 &mdash; Weapon</div>';
+  if (isLoc) badgeEl.innerHTML = '<div class="stage-badge loc">' + t('s1Loc') + '</div>';
+  else if (isSuspect) badgeEl.innerHTML = '<div class="stage-badge sus">' + t('s3Sus') + '</div>';
+  else badgeEl.innerHTML = '<div class="stage-badge weap">' + t('s2Weap') + '</div>';
 
   const isJudge = G.myRole === 'Judge';
 
@@ -1557,11 +2092,11 @@ function renderJudgeScreen(stage) {
   }
 
   if (isJudge) {
-    document.getElementById('judge-title').textContent = isSuspect ? 'Identify the Suspect' : (isLoc ? 'Pick the Location' : 'Pick the Weapon');
-    document.getElementById('judge-sub').textContent = 'Make your choice';
+    document.getElementById('judge-title').textContent = isSuspect ? t('idSuspect') : (isLoc ? t('pickLoc') : t('pickWeap'));
+    document.getElementById('judge-sub').textContent = t('makeChoice');
   } else {
-    document.getElementById('judge-title').textContent = isSuspect ? 'Suspect Identification' : (isLoc ? 'Location Pick' : 'Weapon Pick');
-    document.getElementById('judge-sub').textContent = isSuspect ? 'Judge is choosing...' : '';
+    document.getElementById('judge-title').textContent = isSuspect ? t('susId') : (isLoc ? t('locPick') : t('weapPick'));
+    document.getElementById('judge-sub').textContent = isSuspect ? t('judgeChoosing') : '';
   }
 
   // Grid / player list
@@ -1588,6 +2123,7 @@ function renderJudgeScreen(stage) {
     playersEl.style.display = 'none';
     playersEl.innerHTML = '';
     gridEl.style.display = 'grid';
+    gridEl.style.gridTemplateColumns = `repeat(${G.gridCols}, 1fr)`;
     const grid = isLoc ? G.locationGrid : G.weaponGrid;
     if (isJudge) {
       gridEl.innerHTML = grid.map(item =>
@@ -1613,14 +2149,14 @@ function renderJudgeScreen(stage) {
   jfg.style.strokeDasharray = CIRC;
   jfg.style.strokeDashoffset = 0;
   jfg.classList.remove('urgent');
-  jdigits.textContent = G.timerTotal || JUDGE_TIMER;
+  jdigits.textContent = G.timerTotal || 15;
 
   G.judgeSelection = null;
   showScreen('s-judge');
 }
 
 function selectJudgePick(el, value) {
-  // Handle clicks on child elements (img, label)
+  // Handle clicks on child elements (icon, label)
   const cell = el.closest ? el.closest('.word-cell, .player-chip') || el : el;
   const container = cell.closest('.word-grid, .player-list') || cell.parentElement;
   container.querySelectorAll('.selected').forEach(c => c.classList.remove('selected'));
@@ -1641,23 +2177,26 @@ function showStageResult(data) {
   const isLoc = data.stage === 'location';
   const icon = data.correct ? '&#9989;' : '&#10060;';
   const cls = data.correct ? 'correct' : 'wrong';
-  const msg = data.correct ? 'Correct!' : 'Wrong!';
+  const msg = data.correct ? t('correct') : t('wrong');
 
-  // Find images for guessed and actual words
-  const grid = isLoc ? G.locationGrid : G.weaponGrid;
-  const guessedItem = grid.find(item => item.word === data.guessed);
-  const actualItem = grid.find(item => item.word === data.actual);
+  // Build icon card for guessed word
+  const guessedArt = getCardArt(data.guessed);
+  const guessedCard = `<div style="width:100px;height:100px;border-radius:12px;margin:8px auto;border:2px solid ${data.correct ? 'var(--green)' : 'var(--red)'};display:flex;flex-direction:column;align-items:center;justify-content:center;background:linear-gradient(135deg,${guessedArt[1]},${guessedArt[1]}ee);position:relative;overflow:hidden">
+    <div style="position:absolute;inset:0;border-radius:10px;opacity:0.12;background:radial-gradient(circle at 50% 40%,${guessedArt[2]},transparent)"></div>
+    <div style="font-size:36px;filter:drop-shadow(0 2px 4px rgba(0,0,0,0.3))">${guessedArt[0]}</div>
+    <div style="font-size:10px;font-weight:700;color:var(--text);text-transform:uppercase;letter-spacing:0.5px">${esc(data.guessed)}</div>
+  </div>`;
 
   const content = document.getElementById('result-content');
   content.innerHTML = `
-    <div class="stage-badge ${isLoc ? 'loc' : 'weap'}">${isLoc ? '&#128205;' : '&#128298;'} ${isLoc ? 'Location' : 'Weapon'}</div>
+    <div class="stage-badge ${isLoc ? 'loc' : 'weap'}">${isLoc ? '&#128205;' : '&#128298;'} ${isLoc ? t('loc') : t('weap')}</div>
     <div class="gap2"></div>
     <div style="font-size:56px">${icon}</div>
     <div class="gap"></div>
     <div class="result-banner ${cls}">${msg}</div>
-    ${guessedItem ? `<div style="width:120px;height:120px;border-radius:10px;overflow:hidden;margin:8px auto;border:2px solid ${data.correct ? 'var(--green)' : 'var(--red)'}"><img src="${esc(guessedItem.img)}" style="width:100%;height:100%;object-fit:cover"></div>` : ''}
-    <p style="color:var(--text2);font-size:15px">The Judge picked: <b style="color:var(--text)">${esc(data.guessed)}</b></p>
-    ${!data.correct ? `<p style="color:var(--text3);font-size:14px;margin-top:4px">Correct answer: <b>${esc(data.actual)}</b></p>` : ''}
+    ${guessedCard}
+    <p style="color:var(--text2);font-size:15px">${t('judgePicked')} <b style="color:var(--text)">${esc(tWord(data.guessed))}</b></p>
+    ${!data.correct ? `<p style="color:var(--text3);font-size:14px;margin-top:4px">${t('correctAns')} <b>${esc(tWord(data.actual))}</b></p>` : ''}
   `;
 
   // Judge gets the continue button (re-enable it each time)
@@ -1689,8 +2228,8 @@ function renderSuspectScreen() {
 
   if (isSuspect) {
     contentEl.innerHTML = `
-      <h2>Who is the Witness?</h2>
-      <h3>Pick the player you think is the Witness</h3>
+      <h2>${t('whoWitness')}</h2>
+      <h3>${t('pickWitness')}</h3>
       <div class="gap"></div>
       <div class="player-list" id="suspect-player-list">
         ${G.players.filter(p => p !== NET.myName).map(p =>
@@ -1700,12 +2239,12 @@ function renderSuspectScreen() {
     `;
     confirmBtn.style.display = 'block';
     confirmBtn.disabled = true;
-    confirmBtn.textContent = 'Confirm Guess';
+    confirmBtn.textContent = t('confirmGuess');
     waitEl.style.display = 'none';
   } else {
     contentEl.innerHTML = `
-      <h2>Suspect Identification</h2>
-      <h3>The suspects are now guessing who the Witness is...</h3>
+      <h2>${t('susId')}</h2>
+      <h3>${t('susGuessing')}</h3>
     `;
     confirmBtn.style.display = 'none';
     waitEl.style.display = 'block';
@@ -1726,43 +2265,44 @@ function suspectConfirmVote() {
   if (!G.suspectVote) return;
   sendToHost({ type: 'suspect-vote', name: NET.myName, target: G.suspectVote });
   document.getElementById('btn-suspect-confirm').disabled = true;
-  document.getElementById('btn-suspect-confirm').textContent = 'Vote Submitted';
+  document.getElementById('btn-suspect-confirm').textContent = t('voteSubmitted');
 }
 
 // ======================== GAME OVER ========================
 function showGameOver(data) {
+  document.getElementById('urgent-border').classList.remove('active');
   const content = document.getElementById('gameover-content');
 
   if (data.teamWins) {
     content.innerHTML = `
       <div style="font-size:64px">&#127942;</div>
       <div class="gap"></div>
-      <h1 style="color:var(--green)">Team Wins!</h1>
-      <p class="subtitle" style="margin-top:8px">Both words were correct and the Witness stayed hidden!</p>
+      <h1 style="color:var(--green)">${t('teamWins')}</h1>
+      <p class="subtitle" style="margin-top:8px">${t('teamWinsD')}</p>
     `;
   } else {
     let reason = '';
-    if (data.timedOut) reason += 'Judge ran out of time! ';
-    if (!data.locCorrect && !data.timedOut) reason += 'Wrong location. ';
-    if (!data.weapCorrect && !data.timedOut) reason += 'Wrong weapon. ';
-    if (data.witnessExposed) reason += 'Witness was exposed! ';
+    if (data.timedOut) reason += t('judgeTO');
+    if (data.locCorrect === false) reason += t('wrongLoc');
+    if (data.weapCorrect === false) reason += t('wrongWeap');
+    if (data.witnessExposed) reason += t('witExposed');
     content.innerHTML = `
       <div style="font-size:64px">${data.timedOut ? '&#9203;' : '&#128308;'}</div>
       <div class="gap"></div>
-      <h1 style="color:var(--red)">Suspects Win!</h1>
+      <h1 style="color:var(--red)">${t('susWin')}</h1>
       <p class="subtitle" style="margin-top:8px">${reason.trim()}</p>
     `;
   }
 
   // Results summary
-  const suspectVoteNames = Object.entries(data.suspectVotes || {}).map(([s, t]) => `${esc(s)} guessed ${esc(t)}`).join(', ');
+  const suspectVoteNames = Object.entries(data.suspectVotes || {}).map(([s, v]) => `${esc(s)}${t('guessed')}${esc(v)}`).join(', ');
   const summaryHTML = `
     <div class="card" style="text-align:left;margin-top:8px">
-      <p style="font-size:13px;color:var(--text2);margin-bottom:8px"><b>Results:</b></p>
-      <p style="font-size:14px;margin-bottom:4px">${data.locCorrect ? '&#9989;' : '&#10060;'} Location: <b>${esc(data.judgeGuesses.location || '?')}</b> ${!data.locCorrect ? '(was ' + esc(data.correctLocation) + ')' : ''}</p>
-      <p style="font-size:14px;margin-bottom:4px">${data.weapCorrect ? '&#9989;' : '&#10060;'} Weapon: <b>${esc(data.judgeGuesses.weapon || '?')}</b> ${!data.weapCorrect ? '(was ' + esc(data.correctWeapon) + ')' : ''}</p>
-      <p style="font-size:14px;margin-bottom:4px">${data.judgeGuesses.suspect ? (data.roles[data.judgeGuesses.suspect] === 'Suspect' ? '&#9989;' : '&#10060;') : '&#10060;'} Suspect guess: <b>${esc(data.judgeGuesses.suspect || '?')}</b></p>
-      <p style="font-size:14px">${data.witnessExposed ? '&#10060;' : '&#9989;'} Witness exposed: <b>${data.witnessExposed ? 'Yes' : 'No'}</b></p>
+      <p style="font-size:13px;color:var(--text2);margin-bottom:8px"><b>${t('resultsLabel')}</b></p>
+      <p style="font-size:14px;margin-bottom:4px">${data.locCorrect === null ? '&#8212;' : (data.locCorrect ? '&#9989;' : '&#10060;')} ${t('loc')}: ${data.locCorrect === null ? '<b>' + t('notReached') + '</b>' : '<b>' + esc(tWord(data.judgeGuesses.location) || '?') + '</b>' + (data.locCorrect === false ? ' (was ' + esc(tWord(data.correctLocation)) + ')' : '')}</p>
+      <p style="font-size:14px;margin-bottom:4px">${data.weapCorrect === null ? '&#8212;' : (data.weapCorrect ? '&#9989;' : '&#10060;')} ${t('weap')}: ${data.weapCorrect === null ? '<b>' + t('notReached') + '</b>' : '<b>' + esc(tWord(data.judgeGuesses.weapon) || '?') + '</b>' + (data.weapCorrect === false ? ' (was ' + esc(tWord(data.correctWeapon)) + ')' : '')}</p>
+      <p style="font-size:14px;margin-bottom:4px">${data.judgeGuesses.suspect ? (data.roles[data.judgeGuesses.suspect] === 'Suspect' ? '&#9989;' : '&#10060;') : '&#8212;'} ${t('susGuessLabel')} ${data.judgeGuesses.suspect ? '<b>' + esc(data.judgeGuesses.suspect) + '</b>' : '<b>' + t('notReached') + '</b>'}</p>
+      <p style="font-size:14px">${data.witnessExposed === undefined ? '&#8212; ' + t('witExpLabel') + ' <b>' + t('notReached') + '</b>' : (data.witnessExposed ? '&#10060; ' + t('witExpLabel') + ' <b>' + t('yesW') + '</b>' : '&#9989; ' + t('witExpLabel') + ' <b>' + t('noW') + '</b>')}</p>
       ${suspectVoteNames ? `<p style="font-size:13px;color:var(--text3);margin-top:4px">${suspectVoteNames}</p>` : ''}
     </div>
   `;
@@ -1771,7 +2311,7 @@ function showGameOver(data) {
   const rolesHTML = G.players.map(p => {
     const role = data.roles[p];
     const cls = role ? role.toLowerCase() : '';
-    return `<div class="reveal-role"><span class="rname">${esc(p)}</span><span class="rtag ${cls}">${role || '?'}</span></div>`;
+    return `<div class="reveal-role"><span class="rname">${esc(p)}</span><span class="rtag ${cls}">${role ? tRole(role) : '?'}</span></div>`;
   }).join('');
 
   document.getElementById('gameover-roles').innerHTML = summaryHTML + '<div class="gap"></div>' + rolesHTML;
@@ -1786,15 +2326,37 @@ function playAgain() {
   sendToHost({ type: 'play-again' });
 }
 
+// ======================== ATMOSPHERE: PARTICLES ========================
+function spawnParticles() {
+  const container = document.getElementById('atmosphere');
+  if (!container) return;
+  function create() {
+    const p = document.createElement('div');
+    p.className = 'particle';
+    const size = 1 + Math.random() * 2.5;
+    p.style.width = size + 'px';
+    p.style.height = size + 'px';
+    p.style.left = Math.random() * 100 + 'vw';
+    p.style.bottom = '-10px';
+    const dur = 10 + Math.random() * 15;
+    p.style.animation = 'floatUp ' + dur + 's linear forwards';
+    container.appendChild(p);
+    setTimeout(() => p.remove(), dur * 1000);
+  }
+  for (let i = 0; i < 6; i++) setTimeout(create, i * 500);
+  setInterval(() => { if (document.visibilityState !== 'hidden') create(); }, 2500 + Math.random() * 2000);
+}
+
 // ======================== INIT ========================
 function init() {
-  // Check URL for room code
+  setLang(currentLang);
   const params = new URLSearchParams(window.location.search);
   const joinCode = params.get('join') || params.get('room');
   if (joinCode) {
     document.getElementById('join-code-input').value = joinCode.toUpperCase();
     showScreen('s-join');
   }
+  spawnParticles();
 }
 
 init();
