@@ -1254,12 +1254,22 @@ const LOCAL = {
 };
 
 async function localApi(body) {
-  const res = await fetch(LOCAL.baseUrl + '/api/room', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(body),
-  });
-  return res.json();
+  let res;
+  try {
+    res = await fetch(LOCAL.baseUrl + '/api/room', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    });
+  } catch (e) {
+    throw new Error('Server not reachable. Run serve.py on your PC first.');
+  }
+  const text = await res.text();
+  try {
+    return JSON.parse(text);
+  } catch (e) {
+    throw new Error('Server not reachable. Run serve.py on your PC first.');
+  }
 }
 
 function startLocalPoll() {
@@ -1411,7 +1421,7 @@ async function createRoom() {
       document.getElementById('create-status').textContent = '';
     }
   } catch (e) {
-    toast(t('connErr') + e.message, 'error');
+    toast(e.message || String(e), 'error');
     document.getElementById('btn-create').disabled = false;
     document.getElementById('create-status').textContent = '';
   }
@@ -1442,7 +1452,7 @@ async function joinRoom() {
       document.getElementById('join-status').textContent = '';
     }
   } catch (e) {
-    toast(t('cantConnect'), 'error');
+    toast(e.message || t('cantConnect'), 'error');
     document.getElementById('btn-join').disabled = false;
     document.getElementById('join-status').textContent = '';
   }
