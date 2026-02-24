@@ -284,6 +284,7 @@ input::placeholder{color:var(--text3)}
 
 <div id="app">
 <div id="lang-btn" onclick="toggleLang()" style="position:fixed;top:12px;right:12px;z-index:999;padding:6px 14px;border-radius:20px;background:var(--card2);border:1px solid rgba(255,255,255,0.08);color:var(--gold);font-size:13px;font-weight:700;cursor:pointer;user-select:none;transition:all .2s;letter-spacing:0">عربي</div>
+<div id="local-badge" style="display:none;position:fixed;top:12px;left:12px;z-index:999;padding:4px 10px;border-radius:12px;background:var(--green);color:white;font-size:11px;font-weight:700;letter-spacing:0">LOCAL WiFi</div>
 
 <!-- ===== SCREEN: MAIN MENU ===== -->
 <div class="screen active" id="s-menu">
@@ -934,6 +935,7 @@ en: {
   rSusW:'<b style="color:var(--red)">Suspects Win:</b> Judge picks a wrong word OR a Suspect correctly identifies the Witness.',
   guessed:' guessed ',
   loc:'Location', weap:'Weapon',
+  localWifi:'Local WiFi', localWifiSub:'Everyone on the same network',
 },
 ar: {
   title:'\u0627\u0644\u0645\u062D\u0642\u0642\u0648\u0646',
@@ -1072,6 +1074,7 @@ ar: {
   rSusW:'<b style="color:var(--red)">\u0641\u0648\u0632 \u0627\u0644\u0645\u0634\u062A\u0628\u0647 \u0628\u0647\u0645:</b> \u0627\u0644\u0642\u0627\u0636\u064A \u064A\u062E\u062A\u0627\u0631 \u0643\u0644\u0645\u0629 \u062E\u0627\u0637\u0626\u0629 \u0623\u0648 \u0645\u0634\u062A\u0628\u0647 \u0628\u0647 \u064A\u0643\u0634\u0641 \u0627\u0644\u0634\u0627\u0647\u062F.',
   guessed:' \u062E\u0645\u0651\u0646 ',
   loc:'\u0627\u0644\u0645\u0648\u0642\u0639', weap:'\u0627\u0644\u0633\u0644\u0627\u062D',
+  localWifi:'\u0634\u0628\u0643\u0629 \u0645\u062D\u0644\u064A\u0629', localWifiSub:'\u0627\u0644\u062C\u0645\u064A\u0639 \u0639\u0644\u0649 \u0646\u0641\u0633 \u0627\u0644\u0634\u0628\u0643\u0629',
 }
 };
 
@@ -1246,6 +1249,52 @@ let G = {
 
 let HOST = null;
 
+// ======================== LOCAL WIFI TRANSPORT ========================
+const LOCAL = {
+  active: false,
+  baseUrl: '',
+  pollInterval: null,
+  pollTs: 0,
+};
+
+function isLocalServer() {
+  const h = location.hostname;
+  return h === 'localhost' || h === '127.0.0.1' || /^192\.168\./.test(h) || /^10\./.test(h) || /^172\.(1[6-9]|2\d|3[01])\./.test(h);
+}
+
+async function localApi(body) {
+  const res = await fetch(LOCAL.baseUrl + '/api/room', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+  return res.json();
+}
+
+function startLocalPoll() {
+  if (LOCAL.pollInterval) clearInterval(LOCAL.pollInterval);
+  LOCAL.pollTs = Date.now();
+  LOCAL.pollInterval = setInterval(async () => {
+    try {
+      const res = await localApi({ action: 'poll', room: NET.roomCode, name: NET.myName, since: LOCAL.pollTs });
+      if (res.ok && res.msgs) {
+        LOCAL.pollTs = res.ts;
+        res.msgs.forEach(m => {
+          if (NET.isHost) {
+            handleHostReceive(null, { ...m.msg, _fromName: m.from, _fromHost: m.from === NET.myName });
+          } else {
+            handleClientReceive(m.msg);
+          }
+        });
+      }
+    } catch (e) { /* ignore poll errors */ }
+  }, 300);
+}
+
+function stopLocalPoll() {
+  if (LOCAL.pollInterval) { clearInterval(LOCAL.pollInterval); LOCAL.pollInterval = null; }
+}
+
 // ======================== UTILITIES ========================
 function esc(s) { const d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
 
@@ -1346,9 +1395,38 @@ function showScreen(id) {
 }
 
 // ======================== NETWORKING ========================
-function createRoom() {
+async function createRoom() {
   const name = document.getElementById('host-name-input').value.trim();
   if (!name) { toast(t('enterName'), 'error'); return; }
+
+  if (LOCAL.active) {
+    NET.myName = name;
+    NET.isHost = true;
+    NET.roomCode = generateRoomCode();
+    NET.myId = 'host-' + NET.roomCode;
+    NET.players = [{ name: NET.myName, id: NET.myId }];
+
+    document.getElementById('btn-create').disabled = true;
+    document.getElementById('create-status').textContent = t('creatingRoom');
+
+    try {
+      const res = await localApi({ action: 'create', room: NET.roomCode, name: NET.myName });
+      if (res.ok) {
+        showLobby();
+        toast(t('roomCreated'), 'success');
+        startLocalPoll();
+      } else {
+        toast(res.error || 'Error', 'error');
+        document.getElementById('btn-create').disabled = false;
+        document.getElementById('create-status').textContent = '';
+      }
+    } catch (e) {
+      toast(t('connErr') + e.message, 'error');
+      document.getElementById('btn-create').disabled = false;
+      document.getElementById('create-status').textContent = '';
+    }
+    return;
+  }
 
   document.getElementById('btn-create').disabled = true;
   document.getElementById('create-status').textContent = t('creatingRoom');
@@ -1401,11 +1479,38 @@ function createRoom() {
   });
 }
 
-function joinRoom() {
+async function joinRoom() {
   const code = document.getElementById('join-code-input').value.trim().toUpperCase();
   const name = document.getElementById('join-name-input').value.trim();
   if (!code || code.length !== 4) { toast(t('enterCode'), 'error'); return; }
   if (!name) { toast(t('enterName'), 'error'); return; }
+
+  if (LOCAL.active) {
+    NET.myName = name;
+    NET.isHost = false;
+    NET.roomCode = code;
+    NET.myId = 'player-' + name + '-' + Date.now();
+
+    document.getElementById('btn-join').disabled = true;
+    document.getElementById('join-status').textContent = t('connectingDots');
+
+    try {
+      const res = await localApi({ action: 'join', room: code, name: name });
+      if (res.ok) {
+        await localApi({ action: 'send', room: code, from: name, to: '*', msg: { type: 'join', name: name } });
+        startLocalPoll();
+      } else {
+        toast(res.error || t('roomNotFound'), 'error');
+        document.getElementById('btn-join').disabled = false;
+        document.getElementById('join-status').textContent = '';
+      }
+    } catch (e) {
+      toast(t('cantConnect'), 'error');
+      document.getElementById('btn-join').disabled = false;
+      document.getElementById('join-status').textContent = '';
+    }
+    return;
+  }
 
   document.getElementById('btn-join').disabled = true;
   document.getElementById('join-status').textContent = t('connectingDots');
@@ -1468,6 +1573,12 @@ function handlePeerError(err) {
 }
 
 function broadcast(msg) {
+  if (LOCAL.active) {
+    localApi({ action: 'send', room: NET.roomCode, from: NET.myName, to: '*', msg: msg });
+    // Host also processes the message locally
+    handleClientReceive(msg);
+    return;
+  }
   Object.values(NET.connections).forEach(({ conn }) => {
     if (conn.open) conn.send(msg);
   });
@@ -1476,6 +1587,14 @@ function broadcast(msg) {
 }
 
 function sendToHost(msg) {
+  if (LOCAL.active) {
+    if (NET.isHost) {
+      handleHostReceive(null, { ...msg, _fromHost: true, _fromName: NET.myName });
+    } else {
+      localApi({ action: 'send', room: NET.roomCode, from: NET.myName, to: '__HOST__', msg: msg });
+    }
+    return;
+  }
   if (NET.isHost) {
     handleHostReceive(null, { ...msg, _fromHost: true });
   } else if (NET.hostConn && NET.hostConn.open) {
@@ -1484,6 +1603,18 @@ function sendToHost(msg) {
 }
 
 function sendToPlayer(targetId, msg) {
+  if (LOCAL.active) {
+    if (targetId === NET.myId) {
+      handleClientReceive(msg);
+    } else {
+      // In local mode, find player name from NET.players by id
+      const player = NET.players.find(p => p.id === targetId);
+      if (player) {
+        localApi({ action: 'send', room: NET.roomCode, from: NET.myName, to: player.name, msg: msg });
+      }
+    }
+    return;
+  }
   if (targetId === NET.myId) {
     handleClientReceive(msg);
   } else {
@@ -1494,24 +1625,38 @@ function sendToPlayer(targetId, msg) {
 
 // ======================== HOST MESSAGE HANDLER ========================
 function handleHostReceive(conn, data) {
-  const senderId = data._fromHost ? NET.myId : (conn ? conn.peer : null);
+  const senderId = data._fromHost ? NET.myId : (conn ? conn.peer : (data._fromName ? ('local-' + data._fromName) : null));
 
   switch (data.type) {
     case 'join': {
       if (NET.players.length >= SETTINGS.maxPlayers) {
-        if (conn) conn.send({ type: 'error', msg: t('roomFull') });
+        if (LOCAL.active && data._fromName) {
+          localApi({ action: 'send', room: NET.roomCode, from: NET.myName, to: data._fromName, msg: { type: 'error', msg: t('roomFull') } });
+        } else if (conn) { conn.send({ type: 'error', msg: t('roomFull') }); }
         return;
       }
       if (NET.players.some(p => p.name === data.name)) {
-        if (conn) conn.send({ type: 'error', msg: t('nameTaken') });
+        if (LOCAL.active && data._fromName) {
+          localApi({ action: 'send', room: NET.roomCode, from: NET.myName, to: data._fromName, msg: { type: 'error', msg: t('nameTaken') } });
+        } else if (conn) { conn.send({ type: 'error', msg: t('nameTaken') }); }
         return;
       }
-      if (conn) {
+      if (LOCAL.active) {
+        const fakeId = 'local-' + data.name;
+        NET.connections[fakeId] = { conn: null, name: data.name };
+        NET.players.push({ name: data.name, id: fakeId });
+        broadcast({ type: 'lobby', players: NET.players, roomCode: NET.roomCode });
+        toast(data.name + t('xJoined'), 'success');
+      } else if (conn) {
         NET.connections[conn.peer] = { conn, name: data.name };
+        NET.players.push({ name: data.name, id: conn.peer });
+        broadcast({ type: 'lobby', players: NET.players, roomCode: NET.roomCode });
+        toast(data.name + t('xJoined'), 'success');
+      } else {
+        NET.players.push({ name: data.name, id: NET.myId });
+        broadcast({ type: 'lobby', players: NET.players, roomCode: NET.roomCode });
+        toast(data.name + t('xJoined'), 'success');
       }
-      NET.players.push({ name: data.name, id: conn ? conn.peer : NET.myId });
-      broadcast({ type: 'lobby', players: NET.players, roomCode: NET.roomCode });
-      toast(data.name + t('xJoined'), 'success');
       break;
     }
     case 'ready': {
@@ -1692,6 +1837,10 @@ function showDisconnect(msg) {
 }
 
 function leaveGame() {
+  if (LOCAL.active) {
+    stopLocalPoll();
+    localApi({ action: 'leave', room: NET.roomCode, name: NET.myName }).catch(() => {});
+  }
   if (NET.peer) NET.peer.destroy();
   clearInterval(NET.heartbeat);
   location.reload();
@@ -2349,6 +2498,11 @@ function spawnParticles() {
 
 // ======================== INIT ========================
 function init() {
+  if (isLocalServer()) {
+    LOCAL.active = true;
+    LOCAL.baseUrl = location.origin;
+    document.getElementById('local-badge').style.display = 'block';
+  }
   setLang(currentLang);
   const params = new URLSearchParams(window.location.search);
   const joinCode = params.get('join') || params.get('room');
